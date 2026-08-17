@@ -1,0 +1,316 @@
+# Frozen-tree runtime/resource baseline (2026-08-17)
+#
+# Source and host
+# git HEAD: 7eb786359bf5484f94bac4d513e9b20ec00cff74
+# tree state: dirty/untracked prototype; exact status is preserved in
+#   /private/tmp/dans-baseline-final.MFSmBw/environment.txt
+# host: Mac16,10, Apple arm64, 10 logical CPUs, 16 GiB RAM
+# OS: macOS 26.5.2 (25F84), Darwin 25.5.0
+# Go: go1.26.5 darwin/arm64; GOWORK=off; release builds use GOFLAGS=-mod=readonly
+# Docker: Desktop 4.78.0 (229452), Engine 29.5.3 linux/arm64,
+#   containerd v2.2.4, overlayfs; Compose v5.1.4
+#
+# Estimator
+# Median is the middle observation (or arithmetic mean of the two middle
+# observations). p95 is nearest-rank: sorted rank ceil(0.95*n), one-indexed.
+# Thus p95 is rank 48 for n=50, rank 15 (the maximum) for n=15, and rank 5
+# for n=5. Timing is noisy Docker Desktop evidence, not a portable hard gate.
+#
+# Release artifact command
+# rtk env GOCACHE=/private/tmp/dans-baseline-final-build.QrPYBx/gocache \
+#   GOWORK=off GOFLAGS=-mod=readonly \
+#   TMPDIR=/private/tmp/dans-baseline-final-build.QrPYBx/tmp \
+#   scripts/release.sh build baseline \
+#   /private/tmp/dans-baseline-final-build.QrPYBx/release-baseline
+#
+# Release artifacts (statically linked, stripped ELF)
+# platform       size_bytes  sha256
+# linux/amd64    20459646    fe9aa543cf68fc27ac294b68e16179e697369634e1d38a23956fe9cfa7fcc9aa
+# linux/arm64    19005566    a220c4aa83e46d206baadaa6898ff05322abb8676970112fff7b8259884aedea
+#
+# OCI build commands
+# rtk docker build --file Dockerfile --platform linux/arm64 \
+#   --build-arg VERSION=baseline \
+#   --tag dans-baseline-final-20260817:arm64 --progress=plain .
+# rtk docker build --file Dockerfile --platform linux/amd64 \
+#   --build-arg VERSION=baseline \
+#   --tag dans-baseline-final-20260817:amd64 --progress=plain .
+# rtk docker image inspect --format \
+#   '{{join .RepoTags ","}}\t{{.Id}}\t{{.Os}}/{{.Architecture}}\t{{.Size}}\t{{.Config.User}}' \
+#   dans-baseline-final-20260817:arm64 dans-baseline-final-20260817:amd64
+# Docker inspect .Size is packed/stored-content size for this pinned
+# Docker Desktop containerd store, not uncompressed rootfs size. It is
+# backend-dependent and therefore informational rather than a CI gate.
+# Portable unpacked-rootfs smoke on the same final working tree:
+# rtk scripts/oci-smoke.sh dans-final-rootfs linux/amd64 baseline
+#   oci-smoke: linux/amd64 root filesystem 20709376 bytes
+# rtk scripts/oci-smoke.sh dans-final-rootfs linux/arm64 baseline
+#   oci-smoke: linux/arm64 root filesystem 19255296 bytes
+# Both passed the 27262976-byte ceiling and removed their stopped probe
+# containers and temporary images.
+#
+# Pinned dependency image IDs/repo digests (native linux/arm64 pulls)
+# golang:1.26.5-alpine
+#   sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aabd498d0699ff5fb2
+# postgres:16.14
+#   sha256:95206741a5b214807675e14165369d05b93a9cf692223b616d07cca227e74b0b
+# powerdns/pdns-auth-51:5.1.3
+#   sha256:f976e753a1de8ec62636203ecb12ae5fa3d1055601be167de53f1f673e0abe59
+# ghcr.io/shopify/toxiproxy:2.12.0
+#   sha256:9378ed52a28bc50edc1350f936f518f31fa95f0d15917d6eb40b8e376d1a214e
+# Go tools: sqlc v1.31.1; oapi-codegen v2.8.0
+#
+# Live stack setup (every compose invocation used these exact values)
+# COMPOSE_PROJECT_NAME=dans-baseline-final-20260817
+# POSTGRES_IMAGE=postgres:16.14
+# DANS_IMAGE=dans-baseline-final-20260817:arm64
+# POWERDNS_PORT=29273 DANS_A_PORT=29271 DANS_B_PORT=29272
+# DANS_BAD_KEY_PORT=29274
+# rtk env <values-above> docker compose --file integration/compose.yaml \
+#   up --detach postgres powerdns toxiproxy
+# rtk env <values-above> docker compose --file integration/compose.yaml \
+#   exec --no-TTY postgres pg_isready --username dans_ddl --dbname dans
+# rtk env <values-above> docker compose --file integration/compose.yaml \
+#   exec --no-TTY toxiproxy /toxiproxy-cli \
+#   --host http://127.0.0.1:8474 create --listen 0.0.0.0:18081 \
+#   --upstream powerdns:8081 powerdns
+# rtk env <values-above> docker compose --file integration/compose.yaml \
+#   run --rm --no-deps --no-TTY \
+#   --env 'DANS_DATABASE_URL=postgres://dans_ddl:dans-ddl@postgres/dans?sslmode=disable' \
+#   --env DANS_OUTPUT=json dans-a db migrate
+# rtk env <values-above> docker compose --file integration/compose.yaml \
+#   exec --no-TTY postgres psql --username dans_ddl --dbname dans \
+#   --set ON_ERROR_STOP=1 --set database_name=dans --set schema_name=public \
+#   --set runtime_role=dans_runtime --file=/dans/runtime.sql
+# rtk env <values-above> docker compose --file integration/compose.yaml \
+#   run --rm --no-deps --no-TTY \
+#   --env 'DANS_DATABASE_URL=postgres://dans_ddl:dans-ddl@postgres/dans?sslmode=disable' \
+#   --env DANS_OUTPUT=json dans-a bootstrap --handle baseline-operator \
+#   --display-name 'Baseline Operator' --token-label baseline
+# rtk env <values-above> docker compose --file integration/compose.yaml \
+#   create --no-build dans-a
+#
+# Offline startup method
+# Native linux/arm64 execution inside golang:1.26.5-alpine. The preserved
+# standard-library harness performs 5 unreported warmups, then 50 execs; it
+# measures monotonic wall time around cmd.Run and Linux wait4 ru_maxrss (KiB).
+# No runtime.GC or other intrusive instrumentation is used.
+# rtk docker run --detach --rm \
+#   --name dans-baseline-final-bench-20260817 --platform linux/arm64 \
+#   --entrypoint /bin/sh \
+#   --volume /private/tmp/dans-baseline-final-build.QrPYBx/release-baseline:/bench:ro \
+#   golang:1.26.5-alpine -c 'sleep 900'
+# rtk docker cp \
+#   openspec/changes/build-dans-v1/evidence/performance/startup-harness.go \
+#   dans-baseline-final-bench-20260817:/tmp/startup-harness.go
+# rtk docker exec dans-baseline-final-bench-20260817 \
+#   go build -trimpath -o /tmp/startup-harness /tmp/startup-harness.go
+# rtk docker exec dans-baseline-final-bench-20260817 \
+#   /tmp/startup-harness 5 50 /bench/dans_baseline_linux_arm64 \
+#   dans_version version \
+#   > /private/tmp/dans-baseline-final.MFSmBw/offline-startup-arm64.tsv
+# rtk docker exec dans-baseline-final-bench-20260817 \
+#   /tmp/startup-harness 5 50 /bin/true control \
+#   > /private/tmp/dans-baseline-final.MFSmBw/offline-control-arm64.tsv
+# Summary: DANS elapsed n=50 median=6398875ns range=6017709..7969250ns
+#   p95(rank 48)=7182416ns; maxrss median=16388KiB range=16296..18484KiB
+#   p95(rank 48)=18476KiB.
+# Control elapsed n=50 median=232062.5ns range=192791..333250ns
+#   p95(rank 48)=287208ns; maxrss=6032KiB for all 50 observations.
+#
+# Health timing method
+# A pre-created stopped container is restarted. For each run the host Go
+# harness records start immediately before launching `rtk docker start`, and
+# polls /livez and /readyz independently every 1ms with distinct clients,
+# DisableKeepAlives, a 200ms request timeout, and a 15s run deadline. There
+# are 3 unreported warmups followed by 15 samples; the last run remains ready.
+# rtk go build -trimpath \
+#   -o /private/tmp/dans-baseline-final-build.QrPYBx/health-harness \
+#   openspec/changes/build-dans-v1/evidence/performance/health-harness/health-harness.go
+# rtk /private/tmp/dans-baseline-final-build.QrPYBx/health-harness \
+#   dans-baseline-final-20260817-dans-a-1 http://127.0.0.1:29271 \
+#   > /private/tmp/dans-baseline-final.MFSmBw/time-to-health-arm64.tsv
+# Summary: live n=15 median=116927000ns range=107805666..133191000ns
+#   p95(rank 15)=133191000ns; ready n=15 median=122112750ns
+#   range=113487791..137960042ns p95(rank 15)=137960042ns.
+#
+# Ready-idle process method
+# After the final ready run and 5s idle, a PID-namespace sidecar reads only
+# DANS PID 1 from /proc/1/status and /proc/1/fd five times, one second apart.
+# Dependency and sidecar memory is excluded.
+# rtk docker run --rm --platform linux/arm64 \
+#   --pid container:dans-baseline-final-20260817-dans-a-1 \
+#   --entrypoint /bin/sh golang:1.26.5-alpine -c 'printf \
+#   "sample\tvmrss_kib\trssanon_kib\trssfile_kib\tthreads\tfds\n"; \
+#   sample=1; while [ "$sample" -le 5 ]; do printf "%s\t" "$sample"; \
+#   awk '\''/^VmRSS:/ { vm=$2 } /^RssAnon:/ { anon=$2 } \
+#   /^RssFile:/ { file=$2 } /^Threads:/ { threads=$2 } END { printf \
+#   "%s\t%s\t%s\t%s\t", vm, anon, file, threads }'\'' /proc/1/status; \
+#   set -- /proc/1/fd/*; printf "%s\n" "$#"; \
+#   sample=$((sample + 1)); if [ "$sample" -le 5 ]; then sleep 1; fi; done' \
+#   > /private/tmp/dans-baseline-final.MFSmBw/live-idle-proc.tsv
+# Summary: VmRSS n=5 median=28032KiB range=28032..28036KiB;
+#   RssAnon median=12652KiB range=12652..12656KiB;
+#   RssFile=15380KiB, threads=13, FDs=9 (each stable except stated range).
+#
+# Goroutine diagnostic method
+# This one-time diagnostic is not a production endpoint. For each of five
+# restarts, wait until /readyz returns 200, idle 3s, send SIGQUIT, and wait:
+# rtk sh \
+#   openspec/changes/build-dans-v1/evidence/performance/goroutine-sample.sh \
+#   > /private/tmp/dans-baseline-final.MFSmBw/goroutine-iterations.txt
+# Raw logs:
+# rtk proxy docker logs dans-baseline-final-20260817-dans-a-1 2>&1 | \
+#   rtk gzip -9 > /private/tmp/dans-baseline-final.MFSmBw/goroutine-dumps.log.gz
+# Count every stack header within each SIGQUIT section (including goroutine 0):
+# rtk gzip -dc /private/tmp/dans-baseline-final.MFSmBw/goroutine-dumps.log.gz | \
+#   rtk awk 'BEGIN { print "sample\tgoroutines" } \
+#   /^SIGQUIT: quit$/ { if (dump > 0) print dump "\t" count; dump++; count=0; next } \
+#   dump > 0 && /^goroutine [0-9]+[[:space:]]/ { count++ } \
+#   END { if (dump > 0) print dump "\t" count }'
+# Result: 26 headers in every one of five dumps.
+
+# offline-startup-arm64.tsv
+run	label	elapsed_ns	maxrss_kib
+1	dans_version	7969250	16392
+2	dans_version	7272667	18424
+3	dans_version	7182042	16428
+4	dans_version	7182416	16380
+5	dans_version	6698125	16428
+6	dans_version	6711833	18476
+7	dans_version	7045333	16380
+8	dans_version	6803667	16380
+9	dans_version	6315708	16344
+10	dans_version	6229250	16392
+11	dans_version	6152334	16424
+12	dans_version	6332250	16380
+13	dans_version	6258916	16356
+14	dans_version	6410708	16396
+15	dans_version	6613375	16416
+16	dans_version	6324458	18476
+17	dans_version	6268875	18344
+18	dans_version	6214750	18476
+19	dans_version	6253167	16372
+20	dans_version	6411000	16404
+21	dans_version	6446709	16376
+22	dans_version	6347541	16416
+23	dans_version	6437209	16388
+24	dans_version	6228167	16344
+25	dans_version	6017709	16380
+26	dans_version	6554000	16296
+27	dans_version	6217334	16352
+28	dans_version	6559709	16296
+29	dans_version	6311375	16392
+30	dans_version	6364333	16372
+31	dans_version	6793750	18484
+32	dans_version	6654792	16432
+33	dans_version	6571667	16432
+34	dans_version	6560334	16352
+35	dans_version	6163375	16352
+36	dans_version	6574375	16388
+37	dans_version	6318792	18480
+38	dans_version	6362541	18472
+39	dans_version	6165167	16372
+40	dans_version	6371500	16388
+41	dans_version	6261000	16392
+42	dans_version	6414291	16336
+43	dans_version	6371041	16424
+44	dans_version	6387042	16344
+45	dans_version	6416375	18472
+46	dans_version	6642833	16372
+47	dans_version	6604000	16348
+48	dans_version	6299750	16424
+49	dans_version	6462834	16320
+50	dans_version	6160708	16372
+
+# offline-control-arm64.tsv
+run	label	elapsed_ns	maxrss_kib
+1	control	333250	6032
+2	control	287208	6032
+3	control	239334	6032
+4	control	264083	6032
+5	control	254291	6032
+6	control	256791	6032
+7	control	247083	6032
+8	control	288417	6032
+9	control	239542	6032
+10	control	240500	6032
+11	control	247125	6032
+12	control	232250	6032
+13	control	280416	6032
+14	control	231875	6032
+15	control	226917	6032
+16	control	239333	6032
+17	control	255833	6032
+18	control	223333	6032
+19	control	224125	6032
+20	control	243250	6032
+21	control	269000	6032
+22	control	240625	6032
+23	control	228958	6032
+24	control	226958	6032
+25	control	264500	6032
+26	control	250084	6032
+27	control	232625	6032
+28	control	215625	6032
+29	control	226417	6032
+30	control	222333	6032
+31	control	226208	6032
+32	control	213958	6032
+33	control	192791	6032
+34	control	232375	6032
+35	control	236792	6032
+36	control	233459	6032
+37	control	205583	6032
+38	control	212709	6032
+39	control	228542	6032
+40	control	213000	6032
+41	control	222125	6032
+42	control	207208	6032
+43	control	215208	6032
+44	control	200042	6032
+45	control	214208	6032
+46	control	211000	6032
+47	control	214750	6032
+48	control	213333	6032
+49	control	240542	6032
+50	control	203583	6032
+
+# time-to-health-arm64.tsv
+run	live_ns	ready_ns
+1	114012417	119913542
+2	123437917	128432542
+3	107805666	113487791
+4	110442875	115492208
+5	120577459	126153667
+6	123369292	128369459
+7	116854417	121781875
+8	112544292	117154917
+9	113580750	118683500
+10	108828042	113615375
+11	126208125	131192875
+12	117004667	122112750
+13	133191000	137960042
+14	116927000	122400000
+15	125898792	130592209
+
+# live-idle-proc.tsv
+sample	vmrss_kib	rssanon_kib	rssfile_kib	threads	fds
+1	28032	12652	15380	13	9
+2	28032	12652	15380	13	9
+3	28032	12652	15380	13	9
+4	28032	12652	15380	13	9
+5	28036	12656	15380	13	9
+
+# live-idle-goroutines.tsv
+sample	goroutines
+1	26
+2	26
+3	26
+4	26
+5	26
+
+# oci-image-inspect.tsv
+image	id	platform	size_bytes	user
+dans-baseline-final-20260817:arm64	sha256:5e1b520b94bf3a94b858af2792762bdcf50720c689ba580cb81b2da70a8cc49d	linux/arm64	6588886	65532:65532
+dans-baseline-final-20260817:amd64	sha256:61977b1c6f327c657c08b9769da11a2066266fa2838f8054c14e8fd5285c8748	linux/amd64	7286806	65532:65532

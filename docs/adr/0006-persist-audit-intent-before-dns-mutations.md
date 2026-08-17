@@ -1,0 +1,3 @@
+# Persist audit intent before DNS mutations
+
+DANS will keep one append-only PostgreSQL audit ledger and durably append an intent before forwarding any DNS mutation, followed by the observed terminal outcome. Failure to persist the intent prevents forwarding; failure to persist the outcome after PowerDNS responds does not rewrite the observed response or invite a retry, but makes DANS unhealthy until audit storage recovers. An intent left pending past the upstream deadline receives an `unknown` outcome and is never replayed; records are retained indefinitely in v1 and exposed through an operator-only paginated API and CLI NDJSON export, with no pruning job or endpoint.
