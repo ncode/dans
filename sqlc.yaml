@@ -1,0 +1,35 @@
+version: "2"
+sql:
+  - engine: postgresql
+    schema: internal/database/migrations
+    queries: internal/database/queries
+    gen:
+      go:
+        package: database
+        out: internal/database
+        sql_package: pgx/v5
+        emit_db_tags: true
+        emit_empty_slices: true
+        emit_interface: false
+        emit_pointers_for_null_types: true
+        inflection_exclude_table_names:
+          - installation_metadata
+        initialisms:
+          - api
+          - dns
+          - id
+          - url
+        overrides:
+          - db_type: uuid
+            go_type: string
+          - db_type: uuid
+            nullable: true
+            go_type:
+              type: string
+              pointer: true
+        rename:
+          event_ids: EventIDs
+          matched_delegation_ids: MatchedDelegationIDs
+          powerdns_zone_id: PowerDNSZoneID
+          rrset_summary: RRsetSummary
+          sql_like_pattern: SQLLikePattern

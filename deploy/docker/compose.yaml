@@ -1,0 +1,68 @@
+name: dans
+
+services:
+  dans:
+    image: ${DANS_IMAGE:?set DANS_IMAGE to a released DANS image}
+    command: ["serve"]
+    user: "65532:65532"
+    read_only: true
+    restart: unless-stopped
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      DANS_LISTEN: "0.0.0.0:8080"
+      DANS_DATABASE_URL_FILE: /run/secrets/database-url
+      DANS_POWERDNS_URL: ${DANS_POWERDNS_URL:?set the private PowerDNS API URL}
+      DANS_POWERDNS_UPSTREAM: ${DANS_POWERDNS_UPSTREAM:-powerdns}
+      DANS_POWERDNS_API_KEY_FILE: /run/secrets/powerdns-api-key
+    secrets:
+      - database-url
+      - powerdns-api-key
+    networks:
+      - ingress-private
+      - database-private
+      - powerdns-control
+
+  ingress:
+    image: caddy:2-alpine
+    read_only: true
+    restart: unless-stopped
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    ports:
+      - "443:8443"
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
+    secrets:
+      - tls.crt
+      - tls.key
+    tmpfs:
+      - /config
+      - /data
+    networks:
+      - ingress-private
+
+configs:
+  caddyfile:
+    file: ./Caddyfile
+
+secrets:
+  database-url:
+    file: ${DANS_DATABASE_SECRET_FILE:?set DANS_DATABASE_SECRET_FILE}
+  powerdns-api-key:
+    file: ${DANS_POWERDNS_SECRET_FILE:?set DANS_POWERDNS_SECRET_FILE}
+  tls.crt:
+    file: ${DANS_TLS_CERT_FILE:?set DANS_TLS_CERT_FILE}
+  tls.key:
+    file: ${DANS_TLS_KEY_FILE:?set DANS_TLS_KEY_FILE}
+
+networks:
+  ingress-private:
+    internal: true
+  database-private:
+    external: true
+    name: ${DANS_DATABASE_NETWORK:-database-private}
+  powerdns-control:
+    external: true
+    name: ${DANS_POWERDNS_NETWORK:-powerdns-control}

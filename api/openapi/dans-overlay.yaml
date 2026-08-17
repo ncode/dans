@@ -1,0 +1,1364 @@
+overlay: 1.0.0
+info:
+  title: DANS PowerDNS 5.1.3 overlay
+  version: 1.0.0
+actions:
+  - target: "$"
+    description: Add the DANS API, operation access classes, and evidenced PowerDNS request corrections.
+    update:
+      info:
+        title: DANS and PowerDNS Authoritative HTTP API
+        version: 1.0.0
+        description: The DANS management API and its pinned PowerDNS Authoritative 5.1.3 compatibility surface.
+      paths:
+        "/error":
+          get:
+            operationId: powerDNSError
+            x-dans-access-class: operator-only
+        "/servers":
+          get:
+            x-dans-access-class: operator-only
+        "/servers/{server_id}":
+          get:
+            x-dans-access-class: operator-only
+        "/servers/{server_id}/cache/flush":
+          put:
+            x-dans-access-class: operator-only
+        "/servers/{server_id}/zones":
+          get:
+            x-dans-access-class: authenticated-read
+          post:
+            x-dans-access-class: operator-only
+        "/servers/{server_id}/zones/{zone_id}":
+          get:
+            x-dans-access-class: authenticated-read
+          delete:
+            x-dans-access-class: operator-only
+          patch:
+            x-dans-access-class: delegated-write
+            requestBody:
+              required: true
+              description: A bounded batch of complete RRset changes.
+              content:
+                application/json:
+                  schema:
+                    $ref: "#/components/schemas/ZonePatch"
+          put:
+            x-dans-access-class: operator-only
+        "/servers/{server_id}/zones/{zone_id}/notify":
+          put:
+            x-dans-access-class: operator-only
+        "/servers/{server_id}/zones/{zone_id}/axfr-retrieve":
+          put:
+            x-dans-access-class: operator-only
+        "/servers/{server_id}/zones/{zone_id}/export":
+          get:
+            x-dans-access-class: authenticated-read
+        "/servers/{server_id}/zones/{zone_id}/rectify":
+          put:
+            x-dans-access-class: operator-only
+        "/servers/{server_id}/config":
+          get:
+            x-dans-access-class: operator-only
+        "/servers/{server_id}/config/{config_setting_name}":
+          get:
+            x-dans-access-class: operator-only
+        "/servers/{server_id}/statistics":
+          get:
+            x-dans-access-class: operator-only
+        "/servers/{server_id}/search-data":
+          get:
+            x-dans-access-class: authenticated-read
+        "/servers/{server_id}/zones/{zone_id}/metadata":
+          get:
+            x-dans-access-class: operator-only
+          post:
+            x-dans-access-class: operator-only
+        "/servers/{server_id}/zones/{zone_id}/metadata/{metadata_kind}":
+          get:
+            x-dans-access-class: operator-only
+          put:
+            x-dans-access-class: operator-only
+            requestBody:
+              required: true
+              description: Metadata values required by the PowerDNS 5.1.3 server handler.
+              content:
+                application/json:
+                  schema:
+                    $ref: "#/components/schemas/Metadata"
+          delete:
+            x-dans-access-class: operator-only
+        "/servers/{server_id}/zones/{zone_id}/cryptokeys":
+          get:
+            x-dans-access-class: operator-only
+          post:
+            x-dans-access-class: operator-only
+        "/servers/{server_id}/zones/{zone_id}/cryptokeys/{cryptokey_id}":
+          get:
+            x-dans-access-class: operator-only
+          put:
+            x-dans-access-class: operator-only
+            requestBody:
+              required: true
+              description: Key publication state required by the PowerDNS 5.1.3 server handler.
+              content:
+                application/json:
+                  schema:
+                    $ref: "#/components/schemas/Cryptokey"
+          delete:
+            x-dans-access-class: operator-only
+        "/servers/{server_id}/tsigkeys":
+          get:
+            x-dans-access-class: operator-only
+          post:
+            x-dans-access-class: operator-only
+        "/servers/{server_id}/tsigkeys/{tsigkey_id}":
+          get:
+            x-dans-access-class: operator-only
+          put:
+            x-dans-access-class: operator-only
+          delete:
+            x-dans-access-class: operator-only
+        "/servers/{server_id}/autoprimaries":
+          get:
+            x-dans-access-class: operator-only
+          post:
+            x-dans-access-class: operator-only
+        "/servers/{server_id}/autoprimaries/{ip}/{nameserver}":
+          delete:
+            x-dans-access-class: operator-only
+        "/servers/{server_id}/views":
+          get:
+            x-dans-access-class: operator-only
+        "/servers/{server_id}/views/{view}":
+          get:
+            x-dans-access-class: operator-only
+          post:
+            x-dans-access-class: operator-only
+        "/servers/{server_id}/views/{view}/{id}":
+          delete:
+            x-dans-access-class: operator-only
+        "/servers/{server_id}/networks":
+          get:
+            x-dans-access-class: operator-only
+        "/servers/{server_id}/networks/{ip}/{prefixlen}":
+          get:
+            x-dans-access-class: operator-only
+          put:
+            x-dans-access-class: operator-only
+
+        "/livez":
+          get:
+            operationId: getLiveness
+            summary: Report process liveness.
+            security: []
+            servers:
+              - url: /
+            x-dans-access-class: anonymous
+            responses:
+              "200":
+                description: The process can serve HTTP.
+              "503":
+                description: The process cannot serve HTTP.
+        "/readyz":
+          get:
+            operationId: getReadiness
+            summary: Report whether authenticated API traffic can be served.
+            security: []
+            servers:
+              - url: /
+            x-dans-access-class: anonymous
+            responses:
+              "200":
+                description: The instance is ready.
+              "503":
+                description: The instance is not ready.
+        "/api/docs":
+          get:
+            operationId: getAPIDocument
+            summary: Return this combined OpenAPI document.
+            servers:
+              - url: /
+            x-dans-access-class: authenticated-read
+            responses:
+              "200":
+                description: The combined DANS and PowerDNS contract.
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      additionalProperties: true
+              "401":
+                $ref: "#/components/responses/DansUnauthorized"
+
+        "/dans/identities":
+          get:
+            operationId: listIdentities
+            tags: [dans-identities]
+            x-dans-access-class: operator-only
+            parameters:
+              - $ref: "#/components/parameters/Limit"
+              - $ref: "#/components/parameters/Cursor"
+              - name: kind
+                in: query
+                schema:
+                  type: string
+                  enum: [user, service]
+              - name: enabled
+                in: query
+                schema:
+                  type: boolean
+              - name: operator
+                in: query
+                schema:
+                  type: boolean
+              - name: handle
+                in: query
+                schema:
+                  $ref: "#/components/schemas/Handle"
+            responses:
+              "200":
+                description: A page of identities.
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/IdentityPage"
+              default:
+                $ref: "#/components/responses/DansError"
+          post:
+            operationId: createIdentity
+            tags: [dans-identities]
+            x-dans-access-class: operator-only
+            requestBody:
+              required: true
+              content:
+                application/json:
+                  schema:
+                    $ref: "#/components/schemas/IdentityCreate"
+            responses:
+              "201":
+                description: Identity created.
+                headers:
+                  Location:
+                    $ref: "#/components/headers/Location"
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/Identity"
+              default:
+                $ref: "#/components/responses/DansError"
+        "/dans/identities/{identity_id}":
+          parameters:
+            - $ref: "#/components/parameters/IdentityID"
+          get:
+            operationId: getIdentity
+            tags: [dans-identities]
+            x-dans-access-class: operator-only
+            responses:
+              "200":
+                description: Identity details.
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/Identity"
+              default:
+                $ref: "#/components/responses/DansError"
+          patch:
+            operationId: updateIdentity
+            tags: [dans-identities]
+            x-dans-access-class: operator-only
+            requestBody:
+              required: true
+              content:
+                application/json:
+                  schema:
+                    $ref: "#/components/schemas/IdentityPatch"
+            responses:
+              "200":
+                description: Updated identity.
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/Identity"
+              default:
+                $ref: "#/components/responses/DansError"
+        "/dans/identities/{identity_id}/tokens":
+          parameters:
+            - $ref: "#/components/parameters/IdentityID"
+          get:
+            operationId: listIdentityTokens
+            tags: [dans-tokens]
+            x-dans-access-class: operator-only
+            parameters:
+              - $ref: "#/components/parameters/Limit"
+              - $ref: "#/components/parameters/Cursor"
+            responses:
+              "200":
+                description: A page of token metadata.
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/TokenPage"
+              default:
+                $ref: "#/components/responses/DansError"
+          post:
+            operationId: createIdentityToken
+            tags: [dans-tokens]
+            x-dans-access-class: operator-only
+            requestBody:
+              required: true
+              content:
+                application/json:
+                  schema:
+                    $ref: "#/components/schemas/TokenCreate"
+            responses:
+              "201":
+                description: Token created; the secret is returned only here.
+                headers:
+                  Location:
+                    $ref: "#/components/headers/Location"
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/TokenSecret"
+              default:
+                $ref: "#/components/responses/DansError"
+        "/dans/identities/{identity_id}/tokens/{token_id}":
+          parameters:
+            - $ref: "#/components/parameters/IdentityID"
+            - $ref: "#/components/parameters/TokenID"
+          delete:
+            operationId: revokeIdentityToken
+            tags: [dans-tokens]
+            x-dans-access-class: operator-only
+            responses:
+              "204":
+                description: Token revoked or already revoked.
+              default:
+                $ref: "#/components/responses/DansError"
+
+        "/dans/groups":
+          get:
+            operationId: listGroups
+            tags: [dans-groups]
+            x-dans-access-class: operator-only
+            parameters:
+              - $ref: "#/components/parameters/Limit"
+              - $ref: "#/components/parameters/Cursor"
+              - name: enabled
+                in: query
+                schema:
+                  type: boolean
+              - name: handle
+                in: query
+                schema:
+                  $ref: "#/components/schemas/Handle"
+            responses:
+              "200":
+                description: A page of groups.
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/GroupPage"
+              default:
+                $ref: "#/components/responses/DansError"
+          post:
+            operationId: createGroup
+            tags: [dans-groups]
+            x-dans-access-class: operator-only
+            requestBody:
+              required: true
+              content:
+                application/json:
+                  schema:
+                    $ref: "#/components/schemas/GroupCreate"
+            responses:
+              "201":
+                description: Group created.
+                headers:
+                  Location:
+                    $ref: "#/components/headers/Location"
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/Group"
+              default:
+                $ref: "#/components/responses/DansError"
+        "/dans/groups/{group_id}":
+          parameters:
+            - $ref: "#/components/parameters/GroupID"
+          get:
+            operationId: getGroup
+            tags: [dans-groups]
+            x-dans-access-class: operator-only
+            responses:
+              "200":
+                description: Group details.
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/Group"
+              default:
+                $ref: "#/components/responses/DansError"
+          patch:
+            operationId: updateGroup
+            tags: [dans-groups]
+            x-dans-access-class: operator-only
+            requestBody:
+              required: true
+              content:
+                application/json:
+                  schema:
+                    $ref: "#/components/schemas/GroupPatch"
+            responses:
+              "200":
+                description: Updated group.
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/Group"
+              default:
+                $ref: "#/components/responses/DansError"
+        "/dans/groups/{group_id}/members":
+          parameters:
+            - $ref: "#/components/parameters/GroupID"
+          get:
+            operationId: listGroupMembers
+            tags: [dans-groups]
+            x-dans-access-class: operator-only
+            parameters:
+              - $ref: "#/components/parameters/Limit"
+              - $ref: "#/components/parameters/Cursor"
+            responses:
+              "200":
+                description: A page of direct group members.
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/IdentityPage"
+              default:
+                $ref: "#/components/responses/DansError"
+        "/dans/groups/{group_id}/members/{identity_id}":
+          parameters:
+            - $ref: "#/components/parameters/GroupID"
+            - $ref: "#/components/parameters/IdentityID"
+          put:
+            operationId: addGroupMember
+            tags: [dans-groups]
+            x-dans-access-class: operator-only
+            responses:
+              "204":
+                description: Membership present.
+              default:
+                $ref: "#/components/responses/DansError"
+          delete:
+            operationId: removeGroupMember
+            tags: [dans-groups]
+            x-dans-access-class: operator-only
+            responses:
+              "204":
+                description: Membership absent.
+              default:
+                $ref: "#/components/responses/DansError"
+
+        "/dans/me":
+          get:
+            operationId: getCurrentIdentity
+            tags: [dans-self-service]
+            x-dans-access-class: authenticated-read
+            responses:
+              "200":
+                description: Current identity.
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/Identity"
+              default:
+                $ref: "#/components/responses/DansError"
+        "/dans/me/groups":
+          get:
+            operationId: listCurrentIdentityGroups
+            tags: [dans-self-service]
+            x-dans-access-class: authenticated-read
+            parameters:
+              - $ref: "#/components/parameters/Limit"
+              - $ref: "#/components/parameters/Cursor"
+            responses:
+              "200":
+                description: Current direct group memberships.
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/GroupPage"
+              default:
+                $ref: "#/components/responses/DansError"
+        "/dans/me/delegations":
+          get:
+            operationId: listCurrentIdentityDelegations
+            tags: [dans-self-service]
+            x-dans-access-class: authenticated-read
+            parameters:
+              - $ref: "#/components/parameters/Limit"
+              - $ref: "#/components/parameters/Cursor"
+            responses:
+              "200":
+                description: Current effective delegations.
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/DelegationPage"
+              default:
+                $ref: "#/components/responses/DansError"
+        "/dans/me/tokens":
+          get:
+            operationId: listCurrentIdentityTokens
+            tags: [dans-self-service]
+            x-dans-access-class: authenticated-read
+            parameters:
+              - $ref: "#/components/parameters/Limit"
+              - $ref: "#/components/parameters/Cursor"
+            responses:
+              "200":
+                description: Current token metadata.
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/TokenPage"
+              default:
+                $ref: "#/components/responses/DansError"
+          post:
+            operationId: createCurrentIdentityToken
+            tags: [dans-self-service]
+            x-dans-access-class: authenticated-read
+            requestBody:
+              required: true
+              content:
+                application/json:
+                  schema:
+                    $ref: "#/components/schemas/TokenCreate"
+            responses:
+              "201":
+                description: Token created; the secret is returned only here.
+                headers:
+                  Location:
+                    $ref: "#/components/headers/Location"
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/TokenSecret"
+              default:
+                $ref: "#/components/responses/DansError"
+        "/dans/me/tokens/{token_id}":
+          parameters:
+            - $ref: "#/components/parameters/TokenID"
+          delete:
+            operationId: revokeCurrentIdentityToken
+            tags: [dans-self-service]
+            x-dans-access-class: authenticated-read
+            responses:
+              "204":
+                description: Token revoked or already revoked.
+              default:
+                $ref: "#/components/responses/DansError"
+
+        "/dans/zone-bindings":
+          get:
+            operationId: listZoneBindings
+            tags: [dans-zone-bindings]
+            x-dans-access-class: operator-only
+            parameters:
+              - $ref: "#/components/parameters/Limit"
+              - $ref: "#/components/parameters/Cursor"
+              - name: status
+                in: query
+                schema:
+                  type: string
+                  enum: [active, retired]
+              - name: zone_name
+                in: query
+                schema:
+                  type: string
+            responses:
+              "200":
+                description: A page of zone bindings.
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/ZoneBindingPage"
+              default:
+                $ref: "#/components/responses/DansError"
+          post:
+            operationId: createZoneBinding
+            tags: [dans-zone-bindings]
+            x-dans-access-class: operator-only
+            requestBody:
+              required: true
+              content:
+                application/json:
+                  schema:
+                    $ref: "#/components/schemas/ZoneBindingCreate"
+            responses:
+              "201":
+                description: Zone binding created or the concurrent active binding.
+                headers:
+                  Location:
+                    $ref: "#/components/headers/Location"
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/ZoneBinding"
+              default:
+                $ref: "#/components/responses/DansError"
+        "/dans/zone-bindings/{zone_binding_id}":
+          parameters:
+            - $ref: "#/components/parameters/ZoneBindingID"
+          get:
+            operationId: getZoneBinding
+            tags: [dans-zone-bindings]
+            x-dans-access-class: operator-only
+            responses:
+              "200":
+                description: Zone binding details.
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/ZoneBinding"
+              default:
+                $ref: "#/components/responses/DansError"
+        "/dans/zone-bindings/{zone_binding_id}/observe":
+          parameters:
+            - $ref: "#/components/parameters/ZoneBindingID"
+          post:
+            operationId: observeZoneBinding
+            tags: [dans-zone-bindings]
+            x-dans-access-class: operator-only
+            responses:
+              "200":
+                description: Current upstream observation without state reactivation.
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/ZoneObservation"
+              default:
+                $ref: "#/components/responses/DansError"
+        "/dans/zone-bindings/{zone_binding_id}/confirm-absent":
+          parameters:
+            - $ref: "#/components/parameters/ZoneBindingID"
+          post:
+            operationId: confirmZoneBindingAbsent
+            tags: [dans-zone-bindings]
+            x-dans-access-class: operator-only
+            responses:
+              "200":
+                description: Absence reconciled while the binding remains retired.
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/ZoneBinding"
+              default:
+                $ref: "#/components/responses/DansError"
+        "/dans/zone-bindings/{zone_binding_id}/retry-delete":
+          parameters:
+            - $ref: "#/components/parameters/ZoneBindingID"
+          post:
+            operationId: retryZoneBindingDeletion
+            tags: [dans-zone-bindings]
+            x-dans-access-class: operator-only
+            responses:
+              "204":
+                description: One new audited deletion attempt completed.
+              default:
+                $ref: "#/components/responses/DansError"
+        "/dans/zone-bindings/{zone_binding_id}/rebind":
+          parameters:
+            - $ref: "#/components/parameters/ZoneBindingID"
+          post:
+            operationId: rebindZoneBinding
+            tags: [dans-zone-bindings]
+            x-dans-access-class: operator-only
+            requestBody:
+              required: true
+              content:
+                application/json:
+                  schema:
+                    $ref: "#/components/schemas/ZoneBindingCreate"
+            responses:
+              "201":
+                description: New zone lifetime bound without inherited delegations.
+                headers:
+                  Location:
+                    $ref: "#/components/headers/Location"
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/ZoneBinding"
+              default:
+                $ref: "#/components/responses/DansError"
+
+        "/dans/delegations":
+          get:
+            operationId: listDelegations
+            tags: [dans-delegations]
+            x-dans-access-class: operator-only
+            parameters:
+              - $ref: "#/components/parameters/Limit"
+              - $ref: "#/components/parameters/Cursor"
+              - name: zone_binding_id
+                in: query
+                schema:
+                  $ref: "#/components/schemas/ResourceID"
+              - name: grantee_id
+                in: query
+                schema:
+                  $ref: "#/components/schemas/ResourceID"
+              - name: active
+                in: query
+                schema:
+                  type: boolean
+            responses:
+              "200":
+                description: A page of delegations.
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/DelegationPage"
+              default:
+                $ref: "#/components/responses/DansError"
+          post:
+            operationId: createDelegation
+            tags: [dans-delegations]
+            x-dans-access-class: operator-only
+            requestBody:
+              required: true
+              content:
+                application/json:
+                  schema:
+                    $ref: "#/components/schemas/DelegationCreate"
+            responses:
+              "201":
+                description: Immutable delegation created.
+                headers:
+                  Location:
+                    $ref: "#/components/headers/Location"
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/Delegation"
+              default:
+                $ref: "#/components/responses/DansError"
+        "/dans/delegations/{delegation_id}":
+          parameters:
+            - $ref: "#/components/parameters/DelegationID"
+          get:
+            operationId: getDelegation
+            tags: [dans-delegations]
+            x-dans-access-class: operator-only
+            responses:
+              "200":
+                description: Immutable delegation details.
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/Delegation"
+              default:
+                $ref: "#/components/responses/DansError"
+          delete:
+            operationId: revokeDelegation
+            tags: [dans-delegations]
+            x-dans-access-class: operator-only
+            responses:
+              "204":
+                description: Delegation revoked or already revoked.
+              default:
+                $ref: "#/components/responses/DansError"
+
+        "/dans/audit-events":
+          get:
+            operationId: listAuditEvents
+            tags: [dans-audit]
+            x-dans-access-class: operator-only
+            parameters:
+              - $ref: "#/components/parameters/Limit"
+              - $ref: "#/components/parameters/Cursor"
+              - name: actor_id
+                in: query
+                schema:
+                  $ref: "#/components/schemas/ResourceID"
+              - name: action
+                in: query
+                schema:
+                  type: string
+              - name: target_type
+                in: query
+                schema:
+                  type: string
+              - name: target_id
+                in: query
+                schema:
+                  type: string
+                  minLength: 1
+                  maxLength: 1024
+              - name: result
+                in: query
+                schema:
+                  type: string
+            responses:
+              "200":
+                description: An immutable page of sanitized audit events.
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/AuditEventPage"
+              default:
+                $ref: "#/components/responses/DansError"
+
+      components:
+        securitySchemes:
+          APIKeyHeader:
+            type: apiKey
+            in: header
+            name: X-API-Key
+            description: A DANS opaque API token. The PowerDNS upstream key is never accepted from clients.
+        headers:
+          Location:
+            description: Canonical path of the created resource.
+            schema:
+              type: string
+        parameters:
+          Limit:
+            name: limit
+            in: query
+            schema:
+              type: integer
+              minimum: 1
+              maximum: 500
+              default: 100
+          Cursor:
+            name: cursor
+            in: query
+            schema:
+              type: string
+              maxLength: 1024
+          IdentityID:
+            name: identity_id
+            in: path
+            required: true
+            schema:
+              $ref: "#/components/schemas/ResourceID"
+          TokenID:
+            name: token_id
+            in: path
+            required: true
+            schema:
+              $ref: "#/components/schemas/ResourceID"
+          GroupID:
+            name: group_id
+            in: path
+            required: true
+            schema:
+              $ref: "#/components/schemas/ResourceID"
+          DelegationID:
+            name: delegation_id
+            in: path
+            required: true
+            schema:
+              $ref: "#/components/schemas/ResourceID"
+          ZoneBindingID:
+            name: zone_binding_id
+            in: path
+            required: true
+            schema:
+              $ref: "#/components/schemas/ResourceID"
+        responses:
+          DansError:
+            description: DANS rejected or could not complete the request.
+            content:
+              application/json:
+                schema:
+                  $ref: "#/components/schemas/Error"
+          DansBadRequest:
+            description: The request could not be parsed or is semantically invalid.
+            content:
+              application/json:
+                schema:
+                  $ref: "#/components/schemas/Error"
+          DansUnauthorized:
+            description: The DANS credential is missing or unusable.
+            content:
+              application/json:
+                schema:
+                  $ref: "#/components/schemas/Error"
+          DansForbidden:
+            description: The authenticated identity lacks current authority.
+            content:
+              application/json:
+                schema:
+                  $ref: "#/components/schemas/Error"
+          DansNotFound:
+            description: The requested resource does not exist or is not visible.
+            content:
+              application/json:
+                schema:
+                  $ref: "#/components/schemas/Error"
+          DansConflict:
+            description: The request conflicts with current durable state.
+            content:
+              application/json:
+                schema:
+                  $ref: "#/components/schemas/Error"
+          DansUnprocessableEntity:
+            description: The request violates the declared contract.
+            content:
+              application/json:
+                schema:
+                  $ref: "#/components/schemas/Error"
+          DansInternalError:
+            description: DANS could not complete an internal operation.
+            content:
+              application/json:
+                schema:
+                  $ref: "#/components/schemas/Error"
+          DansBadGateway:
+            description: The PowerDNS connection failed before a response was observed.
+            content:
+              application/json:
+                schema:
+                  $ref: "#/components/schemas/Error"
+          DansServiceUnavailable:
+            description: A required current authorization or audit dependency is unavailable.
+            content:
+              application/json:
+                schema:
+                  $ref: "#/components/schemas/Error"
+          DansGatewayTimeout:
+            description: The PowerDNS deadline expired without an observed response.
+            content:
+              application/json:
+                schema:
+                  $ref: "#/components/schemas/Error"
+        schemas:
+          Record:
+            properties:
+              modified_at:
+                type: integer
+                description: Timestamp of the last record change.
+          View:
+            x-go-name: PowerDNSView
+          ResourceID:
+            type: string
+            format: uuid
+            pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          Handle:
+            type: string
+            minLength: 1
+            maxLength: 63
+            pattern: "^[a-z0-9](?:[a-z0-9._-]{0,61}[a-z0-9])?$"
+          NullableString:
+            type: [string, "null"]
+          NullableTimestamp:
+            type: [string, "null"]
+            format: date-time
+          NullableResourceID:
+            type: [string, "null"]
+            format: uuid
+            pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+
+          ZonePatch:
+            type: object
+            additionalProperties: false
+            required: [rrsets]
+            properties:
+              rrsets:
+                type: array
+                minItems: 1
+                maxItems: 100
+                items:
+                  $ref: "#/components/schemas/RRSetChange"
+          RRSetChange:
+            type: object
+            additionalProperties: false
+            required: [name, type, changetype]
+            properties:
+              name:
+                type: string
+                minLength: 1
+              type:
+                type: string
+                minLength: 1
+              changetype:
+                type: string
+                enum: [REPLACE, DELETE, EXTEND, PRUNE]
+              ttl:
+                type: integer
+                minimum: 0
+                description: Required by PowerDNS for REPLACE; omitted for DELETE and permitted to be omitted for EXTEND or PRUNE.
+              records:
+                type: array
+                description: Required by PowerDNS for REPLACE, EXTEND, and PRUNE; omitted or empty for DELETE.
+                items:
+                  $ref: "#/components/schemas/Record"
+              comments:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Comment"
+
+          IdentityCreate:
+            type: object
+            additionalProperties: false
+            required: [kind, handle]
+            properties:
+              kind:
+                type: string
+                enum: [user, service]
+              handle:
+                $ref: "#/components/schemas/Handle"
+              display_name:
+                $ref: "#/components/schemas/NullableString"
+          IdentityPatch:
+            type: object
+            additionalProperties: false
+            minProperties: 1
+            properties:
+              display_name:
+                type: [string, "null"]
+              enabled:
+                type: boolean
+              operator:
+                type: boolean
+          Identity:
+            type: object
+            additionalProperties: false
+            required: [id, kind, handle, display_name, enabled, operator, created_at, updated_at]
+            properties:
+              id:
+                $ref: "#/components/schemas/ResourceID"
+              kind:
+                type: string
+                enum: [user, service]
+              handle:
+                $ref: "#/components/schemas/Handle"
+              display_name:
+                $ref: "#/components/schemas/NullableString"
+              enabled:
+                type: boolean
+              operator:
+                type: boolean
+              created_at:
+                type: string
+                format: date-time
+              updated_at:
+                type: string
+                format: date-time
+          IdentityPage:
+            type: object
+            additionalProperties: false
+            required: [items, next_cursor]
+            properties:
+              items:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Identity"
+              next_cursor:
+                $ref: "#/components/schemas/NullableString"
+
+          TokenCreate:
+            type: object
+            additionalProperties: false
+            required: [label]
+            properties:
+              label:
+                $ref: "#/components/schemas/Handle"
+              expires_at:
+                $ref: "#/components/schemas/NullableTimestamp"
+          Token:
+            type: object
+            additionalProperties: false
+            required: [id, identity_id, label, status, expires_at, revoked_at, created_at]
+            properties:
+              id:
+                $ref: "#/components/schemas/ResourceID"
+              identity_id:
+                $ref: "#/components/schemas/ResourceID"
+              label:
+                $ref: "#/components/schemas/Handle"
+              status:
+                type: string
+                enum: [active, expired, revoked]
+              expires_at:
+                $ref: "#/components/schemas/NullableTimestamp"
+              revoked_at:
+                $ref: "#/components/schemas/NullableTimestamp"
+              created_at:
+                type: string
+                format: date-time
+          TokenSecret:
+            type: object
+            additionalProperties: false
+            required: [id, identity_id, label, status, expires_at, revoked_at, created_at, secret]
+            properties:
+              id:
+                $ref: "#/components/schemas/ResourceID"
+              identity_id:
+                $ref: "#/components/schemas/ResourceID"
+              label:
+                $ref: "#/components/schemas/Handle"
+              status:
+                type: string
+                enum: [active]
+              expires_at:
+                $ref: "#/components/schemas/NullableTimestamp"
+              revoked_at:
+                $ref: "#/components/schemas/NullableTimestamp"
+              created_at:
+                type: string
+                format: date-time
+              secret:
+                type: string
+                pattern: "^dans_v1_[A-Za-z0-9_-]{43}$"
+          TokenPage:
+            type: object
+            additionalProperties: false
+            required: [items, next_cursor]
+            properties:
+              items:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Token"
+              next_cursor:
+                $ref: "#/components/schemas/NullableString"
+
+          GroupCreate:
+            type: object
+            additionalProperties: false
+            required: [handle]
+            properties:
+              handle:
+                $ref: "#/components/schemas/Handle"
+              display_name:
+                $ref: "#/components/schemas/NullableString"
+          GroupPatch:
+            type: object
+            additionalProperties: false
+            minProperties: 1
+            properties:
+              display_name:
+                type: [string, "null"]
+              enabled:
+                type: boolean
+          Group:
+            type: object
+            additionalProperties: false
+            required: [id, handle, display_name, enabled, created_at, updated_at]
+            properties:
+              id:
+                $ref: "#/components/schemas/ResourceID"
+              handle:
+                $ref: "#/components/schemas/Handle"
+              display_name:
+                $ref: "#/components/schemas/NullableString"
+              enabled:
+                type: boolean
+              created_at:
+                type: string
+                format: date-time
+              updated_at:
+                type: string
+                format: date-time
+          GroupPage:
+            type: object
+            additionalProperties: false
+            required: [items, next_cursor]
+            properties:
+              items:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Group"
+              next_cursor:
+                $ref: "#/components/schemas/NullableString"
+
+          Selector:
+            type: object
+            additionalProperties: false
+            required: [kind, value]
+            properties:
+              kind:
+                type: string
+                enum: [exact, glob]
+              value:
+                type: string
+                minLength: 2
+          DelegationCreate:
+            type: object
+            additionalProperties: false
+            required: [zone_binding_id, selectors]
+            properties:
+              zone_binding_id:
+                $ref: "#/components/schemas/ResourceID"
+              identity_id:
+                $ref: "#/components/schemas/NullableResourceID"
+              group_id:
+                $ref: "#/components/schemas/NullableResourceID"
+              selectors:
+                type: array
+                minItems: 1
+                items:
+                  $ref: "#/components/schemas/Selector"
+              record_types:
+                type: array
+                minItems: 1
+                uniqueItems: true
+                items:
+                  type: string
+                  minLength: 1
+              change_kinds:
+                type: array
+                minItems: 1
+                uniqueItems: true
+                items:
+                  type: string
+                  enum: [REPLACE, DELETE, EXTEND, PRUNE]
+          Delegation:
+            type: object
+            additionalProperties: false
+            required: [id, zone_binding_id, grantee_kind, grantee_id, selectors, record_types, change_kinds, created_at, revoked_at]
+            properties:
+              id:
+                $ref: "#/components/schemas/ResourceID"
+              zone_binding_id:
+                $ref: "#/components/schemas/ResourceID"
+              grantee_kind:
+                type: string
+                enum: [identity, group]
+              grantee_id:
+                $ref: "#/components/schemas/ResourceID"
+              selectors:
+                type: array
+                minItems: 1
+                items:
+                  $ref: "#/components/schemas/Selector"
+              record_types:
+                type: array
+                nullable: true
+                items:
+                  type: string
+              change_kinds:
+                type: array
+                nullable: true
+                items:
+                  type: string
+                  enum: [REPLACE, DELETE, EXTEND, PRUNE]
+              created_at:
+                type: string
+                format: date-time
+              revoked_at:
+                $ref: "#/components/schemas/NullableTimestamp"
+          DelegationPage:
+            type: object
+            additionalProperties: false
+            required: [items, next_cursor]
+            properties:
+              items:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Delegation"
+              next_cursor:
+                $ref: "#/components/schemas/NullableString"
+
+          ZoneBindingCreate:
+            type: object
+            additionalProperties: false
+            required: [zone_id]
+            properties:
+              zone_id:
+                type: string
+                minLength: 1
+          ZoneBinding:
+            type: object
+            additionalProperties: false
+            required: [id, upstream, zone_id, zone_name, generation, status, created_at, retired_at]
+            properties:
+              id:
+                $ref: "#/components/schemas/ResourceID"
+              upstream:
+                type: string
+                enum: [powerdns]
+              zone_id:
+                type: string
+              zone_name:
+                type: string
+              generation:
+                type: integer
+                minimum: 1
+              status:
+                type: string
+                enum: [active, retired]
+              created_at:
+                type: string
+                format: date-time
+              retired_at:
+                $ref: "#/components/schemas/NullableTimestamp"
+          ZoneBindingPage:
+            type: object
+            additionalProperties: false
+            required: [items, next_cursor]
+            properties:
+              items:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ZoneBinding"
+              next_cursor:
+                $ref: "#/components/schemas/NullableString"
+          ZoneObservation:
+            type: object
+            additionalProperties: false
+            required: [binding_id, observed_at, zone_present, observed_zone_id]
+            properties:
+              binding_id:
+                $ref: "#/components/schemas/ResourceID"
+              observed_at:
+                type: string
+                format: date-time
+              zone_present:
+                type: boolean
+              observed_zone_id:
+                type: [string, "null"]
+
+          AuditEvent:
+            type: object
+            additionalProperties: false
+            required: [id, occurred_at, request_id, actor_id, action, target_type, target_id, result, details]
+            properties:
+              id:
+                $ref: "#/components/schemas/ResourceID"
+              occurred_at:
+                type: string
+                format: date-time
+              request_id:
+                type: string
+              actor_id:
+                $ref: "#/components/schemas/NullableResourceID"
+              action:
+                type: string
+              target_type:
+                type: string
+              target_id:
+                $ref: "#/components/schemas/NullableString"
+              result:
+                type: string
+              details:
+                type: object
+                additionalProperties: true
+          AuditEventPage:
+            type: object
+            additionalProperties: false
+            required: [items, next_cursor]
+            properties:
+              items:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditEvent"
+              next_cursor:
+                $ref: "#/components/schemas/NullableString"
+  - target: "$.components.schemas.Record.modified_at"
+    description: Move the published Record.modified_at field into the object's properties where PowerDNS documents it.
+    remove: true
