@@ -1,0 +1,7 @@
+# Dogfood the public API through one CLI
+
+DANS will ship one Go binary whose Cobra command tree covers the server, online DANS management and common zone/RRset workflows, and offline database, bootstrap, recovery, and restore commands. The complete PowerDNS compatibility surface remains available through HTTP and the generated client rather than a handwritten CLI clone or raw-request escape hatch. Commands are non-interactive; help, version, and completion are offline and side-effect-free.
+
+Each invocation creates a fresh Viper instance, optionally reads only the JSON file named by `--config` or `DANS_CONFIG`, explicitly binds known `DANS_*` environment variables and flags, strictly decodes and validates the settings needed by that command, then freezes a typed configuration before any goroutine starts. Precedence is built-in defaults, file, environment, then flags. There is no global Viper state, `AutomaticEnv`, implicit search, alternate formats, remote provider, or live reload. Secrets may be supplied through a dedicated environment variable or mutually exclusive `*_file` setting, never as literal flags or JSON values; the PowerDNS key also permits the explicitly named rendered-fragment source.
+
+Every change is gated by integration QA that drives the compiled CLI against real ephemeral PostgreSQL, two DANS instances, and PowerDNS through public APIs, with deterministic text or JSON output and no test-only endpoints.

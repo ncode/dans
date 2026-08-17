@@ -1,0 +1,92 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16.14
+        env:
+          POSTGRES_DB: dans_bench
+          POSTGRES_USER: dans_bench
+          POSTGRES_PASSWORD: dans-bench
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dans_bench -d dans_bench"
+          --health-interval 1s
+          --health-timeout 5s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version: 1.26.5
+          cache: true
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - run: make generate-check
+      - run: make integration-contract
+      - run: scripts/release_workflow_test.sh
+      - run: scripts/release_test.sh
+      - run: scripts/footprint_test.sh
+      - run: scripts/oci-smoke.sh dans-ci-smoke linux/amd64 ci
+      - run: scripts/oci-smoke.sh dans-ci-smoke linux/arm64 ci
+      - run: scripts/deploy-smoke.sh
+      - run: make benchmark-check
+      - run: make benchmark-postgres-check
+        env:
+          DANS_TEST_DATABASE_URL: postgres://dans_bench:dans-bench@127.0.0.1:5432/dans_bench?sslmode=disable
+      - run: go test ./...
+      - run: go test -race ./...
+      - run: go vet ./...
+
+  integration:
+    name: integration (${{ matrix.name }})
+    needs: unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: pg16
+            postgres: postgres:16.14
+          - name: pg18
+            postgres: postgres:18.4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version: 1.26.5
+          cache: true
+      - name: Install DNS query client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dnsutils
+      - name: Run real-system integration
+        env:
+          DANS_QA_LOG_DIR: ${{ runner.temp }}/dans-integration-logs/${{ matrix.name }}
+          DANS_QA_PERFORMANCE_DIR: ${{ runner.temp }}/dans-performance/${{ matrix.name }}
+        run: scripts/integration.sh "${{ matrix.postgres }}"
+      - name: Upload performance measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dans-performance-${{ matrix.name }}
+          path: ${{ runner.temp }}/dans-performance/${{ matrix.name }}
+          if-no-files-found: warn
+      - name: Upload integration diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dans-integration-${{ matrix.name }}
+          path: ${{ runner.temp }}/dans-integration-logs/${{ matrix.name }}
+          if-no-files-found: warn

@@ -1,0 +1,83 @@
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:?set POSTGRES_IMAGE to a pinned supported minor}
+    environment:
+      POSTGRES_DB: dans
+      POSTGRES_USER: dans_ddl
+      POSTGRES_PASSWORD: dans-ddl
+    volumes:
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/10-runtime-role.sql:ro
+      - ../internal/database/privileges/runtime.sql:/dans/runtime.sql:ro
+    networks: [control]
+
+  powerdns:
+    image: powerdns/pdns-auth-51:5.1.3
+    environment:
+      PDNS_AUTH_API_KEY: dans_v1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+    ports:
+      - "127.0.0.1:${POWERDNS_PORT:?}:53/udp"
+      - "127.0.0.1:${POWERDNS_PORT:?}:53/tcp"
+    networks: [control, ingress]
+
+  toxiproxy:
+    image: ghcr.io/shopify/toxiproxy:2.12.0
+    networks: [control]
+
+  dans-a: &dans
+    image: ${DANS_IMAGE:?set DANS_IMAGE to the integration image tag}
+    build:
+      context: ..
+      args:
+        VERSION: integration
+    command: ["serve"]
+    environment: &dans-environment
+      DANS_LISTEN: 0.0.0.0:8080
+      DANS_DATABASE_URL: postgres://dans_runtime:dans-runtime@postgres/dans?sslmode=disable
+      DANS_POWERDNS_URL: http://toxiproxy:18081
+      DANS_POWERDNS_UPSTREAM: integration
+      DANS_POWERDNS_API_KEY: dans_v1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+      DANS_POWERDNS_TIMEOUT: 2s
+      DANS_DATABASE_MAX_CONNECTIONS: "8"
+      DANS_DATABASE_AUTHENTICATION_RESERVE: "2"
+      DANS_DATABASE_READINESS_RESERVE: "1"
+      DANS_DATABASE_CONNECT_TIMEOUT: 1s
+      DANS_DATABASE_STATEMENT_TIMEOUT: 2s
+      DANS_DATABASE_LOCK_TIMEOUT: 1s
+      DANS_DATABASE_TRANSACTION_TIMEOUT: 3s
+      DANS_HEALTH_TIMEOUT: 1s
+      DANS_REQUEST_TIMEOUT: 6s
+      DANS_READ_TIMEOUT: 8s
+      DANS_WRITE_TIMEOUT: 8s
+      DANS_SHUTDOWN_TIMEOUT: 3s
+    ports:
+      - "127.0.0.1:${DANS_A_PORT:?}:8080"
+    networks: [control, client, ingress]
+
+  dans-b:
+    <<: *dans
+    ports:
+      - "127.0.0.1:${DANS_B_PORT:?}:8080"
+
+  dans-bad-key:
+    <<: *dans
+    profiles: [faults]
+    environment:
+      <<: *dans-environment
+      DANS_POWERDNS_API_KEY: deliberately-rejected-key
+    ports:
+      - "127.0.0.1:${DANS_BAD_KEY_PORT:?}:8080"
+
+  cli:
+    image: ${DANS_IMAGE:?set DANS_IMAGE to the integration image tag}
+    entrypoint: ["/usr/local/bin/dans"]
+    command: ["help"]
+    profiles: [tools]
+    networks: [client]
+
+networks:
+  control:
+    internal: true
+  client:
+    internal: true
+  ingress:
+    driver: bridge

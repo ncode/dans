@@ -1,0 +1,3 @@
+CREATE ROLE dans_runtime LOGIN PASSWORD 'dans-runtime';
+REVOKE ALL ON DATABASE dans FROM PUBLIC;
+GRANT CONNECT ON DATABASE dans TO dans_runtime;

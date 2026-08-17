@@ -1,0 +1,5 @@
+# Own identities and opaque API tokens
+
+DANS will initially own human and service identities, direct non-nested group membership, operator roles, and multiple named API tokens per identity. Tokens use the versioned `dans_v1_` format with 256 random bits, are shown once, stored only as indexed SHA-256 digests, and identify their caller without carrying cached authority; disabling an identity or changing its roles, groups, or delegations therefore affects the next authorization decision point. DANS does not persist token last-use timestamps; structured access logs provide usage evidence without turning authentication into a database write. Authenticated responses use `Cache-Control: no-store`.
+
+An enabled identity may inspect its paginated groups, effective delegations, and token metadata and may create or revoke its own tokens; operators administer all resources. Database-locked CLI commands initialize an empty installation, recover a token for an existing enabled operator, or finalize a restore by revoking every restored token and issuing one replacement, without exposing an HTTP backdoor; no state transition may leave DANS without an enabled operator.

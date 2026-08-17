@@ -1,0 +1,64 @@
+# Go 1.26.5, darwin/arm64, Apple M4; benchtime=3s, count=5, benchmem
+
+goos: darwin
+goarch: arm64
+pkg: github.com/ncode/dans/internal/identifier
+cpu: Apple M4
+BenchmarkValidateToken-10    	132535573	26.77 ns/op	32 B/op	1 allocs/op
+BenchmarkValidateToken-10    	140838104	25.57 ns/op	32 B/op	1 allocs/op
+BenchmarkValidateToken-10    	141341978	25.71 ns/op	32 B/op	1 allocs/op
+BenchmarkValidateToken-10    	138749784	25.84 ns/op	32 B/op	1 allocs/op
+BenchmarkValidateToken-10    	139359400	25.77 ns/op	32 B/op	1 allocs/op
+BenchmarkDigestToken-10      	70784510	51.38 ns/op	64 B/op	1 allocs/op
+BenchmarkDigestToken-10      	68874255	51.31 ns/op	64 B/op	1 allocs/op
+BenchmarkDigestToken-10      	69823879	51.42 ns/op	64 B/op	1 allocs/op
+BenchmarkDigestToken-10      	70797097	51.41 ns/op	64 B/op	1 allocs/op
+BenchmarkDigestToken-10      	69282787	51.50 ns/op	64 B/op	1 allocs/op
+
+pkg: github.com/ncode/dans/internal/dnsname
+BenchmarkCanonicalizeRRsetBatch/1-10  	9479588	366.2 ns/op	368 B/op	17 allocs/op
+BenchmarkCanonicalizeRRsetBatch/1-10  	9851250	366.1 ns/op	368 B/op	17 allocs/op
+BenchmarkCanonicalizeRRsetBatch/1-10  	9867385	365.9 ns/op	368 B/op	17 allocs/op
+BenchmarkCanonicalizeRRsetBatch/1-10  	9870174	366.7 ns/op	368 B/op	17 allocs/op
+BenchmarkCanonicalizeRRsetBatch/1-10  	9795916	367.4 ns/op	368 B/op	17 allocs/op
+BenchmarkCanonicalizeRRsetBatch/100-10	98840	36446 ns/op	36800 B/op	1700 allocs/op
+BenchmarkCanonicalizeRRsetBatch/100-10	99484	36736 ns/op	36800 B/op	1700 allocs/op
+BenchmarkCanonicalizeRRsetBatch/100-10	95644	36894 ns/op	36800 B/op	1700 allocs/op
+BenchmarkCanonicalizeRRsetBatch/100-10	97268	36767 ns/op	36800 B/op	1700 allocs/op
+BenchmarkCanonicalizeRRsetBatch/100-10	97782	36847 ns/op	36800 B/op	1700 allocs/op
+
+pkg: github.com/ncode/dans/internal/httpapi
+BenchmarkStrictJSONZonePatch/1-10  	509018	7182 ns/op	19.49 MB/s	8480 B/op	184 allocs/op
+BenchmarkStrictJSONZonePatch/1-10  	510156	7036 ns/op	19.90 MB/s	8480 B/op	184 allocs/op
+BenchmarkStrictJSONZonePatch/1-10  	514590	7072 ns/op	19.80 MB/s	8480 B/op	184 allocs/op
+BenchmarkStrictJSONZonePatch/1-10  	505201	7027 ns/op	19.92 MB/s	8480 B/op	184 allocs/op
+BenchmarkStrictJSONZonePatch/1-10  	512049	7023 ns/op	19.94 MB/s	8480 B/op	184 allocs/op
+BenchmarkStrictJSONZonePatch/100-10	6717	590522 ns/op	21.85 MB/s	471926 B/op	13087 allocs/op
+BenchmarkStrictJSONZonePatch/100-10	6699	540623 ns/op	23.87 MB/s	471924 B/op	13087 allocs/op
+BenchmarkStrictJSONZonePatch/100-10	6696	551772 ns/op	23.38 MB/s	471925 B/op	13087 allocs/op
+BenchmarkStrictJSONZonePatch/100-10	6715	557246 ns/op	23.15 MB/s	471925 B/op	13087 allocs/op
+BenchmarkStrictJSONZonePatch/100-10	6616	542255 ns/op	23.79 MB/s	471924 B/op	13087 allocs/op
+
+pkg: github.com/ncode/dans/internal/httpserver
+BenchmarkAuthenticationMiddleware/liveness-10     	1000000000	3.004 ns/op	0 B/op	0 allocs/op
+BenchmarkAuthenticationMiddleware/liveness-10     	1000000000	2.987 ns/op	0 B/op	0 allocs/op
+BenchmarkAuthenticationMiddleware/liveness-10     	1000000000	2.989 ns/op	0 B/op	0 allocs/op
+BenchmarkAuthenticationMiddleware/liveness-10     	1000000000	2.986 ns/op	0 B/op	0 allocs/op
+BenchmarkAuthenticationMiddleware/liveness-10     	1000000000	3.002 ns/op	0 B/op	0 allocs/op
+BenchmarkAuthenticationMiddleware/authenticated-10	19610442	181.4 ns/op	528 B/op	6 allocs/op
+BenchmarkAuthenticationMiddleware/authenticated-10	19793242	182.1 ns/op	528 B/op	6 allocs/op
+BenchmarkAuthenticationMiddleware/authenticated-10	19836254	181.5 ns/op	528 B/op	6 allocs/op
+BenchmarkAuthenticationMiddleware/authenticated-10	19915000	181.0 ns/op	528 B/op	6 allocs/op
+BenchmarkAuthenticationMiddleware/authenticated-10	19536019	201.5 ns/op	528 B/op	6 allocs/op
+
+pkg: github.com/ncode/dans/internal/database
+BenchmarkAuthorizeRRsetBatch/1-10  	5272	601060 ns/op	3309 B/op	63 allocs/op
+BenchmarkAuthorizeRRsetBatch/1-10  	6504	591976 ns/op	3305 B/op	63 allocs/op
+BenchmarkAuthorizeRRsetBatch/1-10  	5798	590512 ns/op	3306 B/op	63 allocs/op
+BenchmarkAuthorizeRRsetBatch/1-10  	6212	586471 ns/op	3306 B/op	63 allocs/op
+BenchmarkAuthorizeRRsetBatch/1-10  	5890	599437 ns/op	3306 B/op	63 allocs/op
+BenchmarkAuthorizeRRsetBatch/100-10	3442	1110996 ns/op	190553 B/op	2748 allocs/op
+BenchmarkAuthorizeRRsetBatch/100-10	3092	1117807 ns/op	190533 B/op	2748 allocs/op
+BenchmarkAuthorizeRRsetBatch/100-10	3039	1127482 ns/op	190465 B/op	2748 allocs/op
+BenchmarkAuthorizeRRsetBatch/100-10	3342	1116760 ns/op	190237 B/op	2748 allocs/op
+BenchmarkAuthorizeRRsetBatch/100-10	3396	1124615 ns/op	190544 B/op	2748 allocs/op
