@@ -1,4 +1,43 @@
-.PHONY: benchmark-check benchmark-postgres-check generate generate-check integration integration-contract openapi-source-update openapi-source-verify test
+.PHONY: benchmark-check benchmark-postgres-check dev-contract down generate generate-check help integration integration-contract logs openapi-source-update openapi-source-verify reset smoke status test up
+
+DEV_STACK := ./scripts/dev-stack.sh
+
+help:
+	@printf '%s\n' \
+		'Local Docker stack:' \
+		'  make up                 Build, initialize, and start DANS' \
+		'  make smoke              Exercise delegation, DNS, and audit end to end' \
+		'  make status             Show containers and DANS readiness' \
+		'  make logs               Follow stack logs' \
+		'  make down               Stop containers and preserve local data' \
+		'  make reset CONFIRM=1    Delete the local stack, data, and credentials' \
+		'' \
+		'Development:' \
+		'  make test               Run unit tests' \
+		'  make integration        Run the full Docker integration suite' \
+		'  make generate-check     Check generated files for drift' \
+		'  make dev-contract       Check the local-stack documentation contract'
+
+up:
+	@$(DEV_STACK) up
+
+down:
+	@$(DEV_STACK) down
+
+status:
+	@$(DEV_STACK) status
+
+logs:
+	@$(DEV_STACK) logs
+
+smoke:
+	@$(DEV_STACK) smoke
+
+reset:
+	@CONFIRM='$(CONFIRM)' $(DEV_STACK) reset
+
+dev-contract:
+	@./scripts/dev-contract.sh
 
 benchmark-check:
 	go test ./internal/identifier ./internal/dnsname ./internal/httpapi ./internal/httpserver -run '^$$' -bench '^Benchmark' -benchtime=1x -benchmem
