@@ -20,16 +20,20 @@ The absolute DNS name to which an RRset belongs.
 _Avoid_: Hostname
 
 **Name pattern**:
-An operator-defined, Route 53-style glob used to select canonical absolute owner names within a zone for a delegation. `*` may span DNS labels.
+A Route 53-style glob defined by a DANS operator and used to select canonical absolute owner names within a zone for a delegation. `*` may span DNS labels.
 _Avoid_: Regex, regular expression
 
 **Delegation**:
-An operator-defined, allow-only grant of authority over RRsets selected by a zone, one or more name patterns, and optional record-type and change-kind restrictions.
+An allow-only grant defined by a DANS operator over RRsets selected by a zone, one or more name patterns, and optional record-type and change-kind restrictions.
 _Avoid_: Subzone
 
-**Operator**:
+**DANS operator**:
 A privileged identity who defines delegations and administers DANS.
-_Avoid_: Tenant
+_Avoid_: Operator, tenant
+
+**Platform operator**:
+A person or team responsible for deploying and running DANS. A platform operator is not necessarily a DANS operator.
+_Avoid_: Operator
 
 **Grantee**:
 A user or group named by a delegation.
@@ -61,14 +65,14 @@ A mutable, non-unique Unicode label shown to people.
 An exact owner name or name pattern within a delegation. Exact selectors are required for the zone apex and literal wildcard RRsets.
 
 **Effective authority**:
-The current union of an identity's direct delegations, group delegations, and operator role.
+The current union of an identity's direct delegations, group delegations, and DANS operator role.
 _Avoid_: Cached permissions
 
 **Authorization decision point**:
 The primary-database statement snapshot at which DANS computes an identity's effective authority for one request. Authority committed before this point applies; a request that has reached this point may finish after a concurrent revocation.
 
 **Route class**:
-The exhaustive authorization classification attached to a supported API operation: authenticated read, delegated RRset write, or operator-only. Unknown operations have no implicit class and fail closed.
+The exhaustive authorization classification attached to a supported API operation: authenticated read, delegated RRset write, or `operator-only` (restricted to DANS operators). Unknown operations have no implicit class and fail closed.
 
 **Compatibility surface**:
 The operations in DANS's pinned PowerDNS `/api/v1` OpenAPI contract. PowerDNS web UI, metrics, and undocumented routes are outside this surface.
@@ -77,7 +81,7 @@ The operations in DANS's pinned PowerDNS `/api/v1` OpenAPI contract. PowerDNS we
 DANS's association with the current lifetime of an upstream zone. Deleting a zone retires its binding so recreating the same name cannot revive old delegations.
 
 **Rebind**:
-An explicit operator action that creates a new zone binding after a zone has been recreated. A rebind never copies delegations from a retired binding.
+An explicit DANS operator action that creates a new zone binding after a zone has been recreated. A rebind never copies delegations from a retired binding.
 
 **Audit intent**:
 An immutable record written before DANS forwards a DNS mutation.
@@ -92,7 +96,7 @@ An audit outcome used when DANS cannot determine whether PowerDNS applied a forw
 Zones, RRsets, comments, searches, and exports that any authenticated identity may read.
 
 **Sensitive PowerDNS data**:
-Secrets and operational information, including TSIG secrets, DNSSEC private keys, configuration, and statistics, that only operators may read.
+Secrets and operational information, including TSIG secrets, DNSSEC private keys, configuration, and statistics, that only DANS operators may read.
 
 **Literal wildcard RRset**:
 An RRset whose owner name contains the DNS wildcard label `*`. It requires an exact-name delegation and is not selected implicitly by a glob wildcard.

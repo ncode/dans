@@ -1,0 +1,68 @@
+name: ${COMPOSE_PROJECT_NAME:-dans-dev}
+
+services:
+  postgres:
+    image: postgres:16.14
+    environment:
+      POSTGRES_DB: dans
+      POSTGRES_USER: dans_ddl
+      POSTGRES_PASSWORD: dans-ddl
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dans_ddl -d dans"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./integration/postgres/init.sql:/docker-entrypoint-initdb.d/10-runtime-role.sql:ro
+      - ./internal/database/privileges/runtime.sql:/dans/runtime.sql:ro
+    networks: [control]
+
+  powerdns:
+    image: powerdns/pdns-auth-51:5.1.3
+    environment:
+      PDNS_AUTH_API_KEY: dans_v1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+    ports:
+      - "127.0.0.1:${DANS_DEV_DNS_PORT:-1053}:53/tcp"
+      - "127.0.0.1:${DANS_DEV_DNS_PORT:-1053}:53/udp"
+    volumes:
+      - powerdns-data:/var/lib/powerdns
+    networks: [control, ingress]
+
+  dans:
+    image: ${COMPOSE_PROJECT_NAME:-dans-dev}:local
+    build:
+      context: .
+      args:
+        VERSION: dev
+    command: ["serve"]
+    environment:
+      DANS_LISTEN: 0.0.0.0:8080
+      DANS_DATABASE_URL: postgres://dans_runtime:dans-runtime@postgres/dans?sslmode=disable
+      DANS_POWERDNS_URL: http://powerdns:8081
+      DANS_POWERDNS_UPSTREAM: dev
+      DANS_POWERDNS_API_KEY: dans_v1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+    ports:
+      - "127.0.0.1:${DANS_DEV_HTTP_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      powerdns:
+        condition: service_started
+    networks: [control, ingress]
+
+  cli:
+    image: busybox:1.37.0-musl
+    command: ["true"]
+    profiles: [tools]
+    networks: [control]
+
+networks:
+  control:
+    internal: true
+  ingress:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  powerdns-data:
