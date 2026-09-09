@@ -216,30 +216,15 @@ func (handler *ZoneHandler) RetryZoneBindingDeletion(ctx context.Context, reques
 	if err != nil {
 		return retryZoneBindingDeletionFailure(err), nil
 	}
-	AccessMetadataFromContext(ctx).SetOperationID(plan.Intent.OperationID)
-	response, err := handler.upstream.Forward(func(client api.ClientInterface) (*http.Response, error) {
-		return client.DeleteZone(ctx, api.ServerId("localhost"), api.ZoneId(plan.PowerDNSZoneID))
-	})
+	deletion := zoneDeletion{
+		upstream: handler.upstream, recordOutcome: handler.store.RecordZoneDeletionOutcome,
+		timeout: handler.timeout, auditFailures: handler.auditFailures,
+	}
+	response, result, err := deletion.execute(ctx, api.ServerId("localhost"), plan)
 	if err != nil {
-		handler.recordDeletionOutcome(ctx, plan, database.ZoneDeletionOutcomeInput{Result: database.ZoneDeletionUnknown, ResponseClass: "transport_error"})
 		return retryZoneBindingDeletionFailure(err), nil
 	}
-	body, readErr := io.ReadAll(io.LimitReader(response.Body, upstream.MaxProbeBytes+1))
-	_ = response.Body.Close()
-	result := database.ZoneDeletionFailed
-	if response.StatusCode == http.StatusNotFound {
-		result = database.ZoneDeletionNotFound
-	} else if response.StatusCode >= 200 && response.StatusCode < 300 {
-		result = database.ZoneDeletionDeleted
-	}
-	if readErr != nil || len(body) > upstream.MaxProbeBytes {
-		result = database.ZoneDeletionUnknown
-	}
-	_, responseClass := classifyMutationResponse(response.StatusCode)
-	responseDigest := sha256.Sum256(body)
-	handler.recordDeletionOutcome(ctx, plan, database.ZoneDeletionOutcomeInput{
-		Result: result, ResponseClass: responseClass, ResponseCode: &response.StatusCode, ResponseDigest: responseDigest[:],
-	})
+	defer response.Body.Close()
 	if result == database.ZoneDeletionDeleted || result == database.ZoneDeletionNotFound {
 		AccessMetadataFromContext(ctx).SetResourceID(plan.Binding.ID)
 		return api.RetryZoneBindingDeletion204Response{}, nil
@@ -280,14 +265,6 @@ func (handler *ZoneHandler) observeUpstreamZone(ctx context.Context, zoneID stri
 		return false, "", "", httpapi.NewError(httpapi.KindBadGateway, errors.New("PowerDNS zone observation is invalid"))
 	}
 	return true, *zone.Id, *zone.Name, nil
-}
-
-func (handler *ZoneHandler) recordDeletionOutcome(parent context.Context, plan database.ZoneDeletionPlan, input database.ZoneDeletionOutcomeInput) {
-	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), handler.timeout)
-	defer cancel()
-	if _, err := handler.store.RecordZoneDeletionOutcome(ctx, plan, input); err != nil {
-		handler.auditFailures.ReportAuditFailure()
-	}
 }
 
 func zoneBindingListOptions(params api.ListZoneBindingsParams) (database.ZoneBindingListOptions, string, error) {

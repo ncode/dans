@@ -136,6 +136,13 @@ DANS SHALL treat upstream deletion success or confirmed absence as completed del
 - **THEN** DANS returns the observed failure
 - **AND** leaves the binding retired and all attached delegations revoked pending operator reconciliation
 
+#### Scenario: Record deletion status before consuming the response body
+- **WHEN** an initial deletion or explicit deletion retry receives an upstream HTTP response
+- **THEN** a 2xx status or 404 determines successful completion and any other status determines a definite failure
+- **AND** the audit outcome write completes or reports failure before consuming or closing the response body
+- **AND** a slow, truncated, or unread response body does not change that outcome to `unknown`
+- **AND** the audit intent retains its request digest while the deletion outcome omits the optional response-body digest
+
 #### Scenario: Zone deletion has unknown outcome
 - **WHEN** DANS cannot determine whether PowerDNS applied a forwarded zone deletion
 - **THEN** DANS marks the outcome `unknown`

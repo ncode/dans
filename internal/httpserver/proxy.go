@@ -426,32 +426,17 @@ func (proxy *PowerDNSProxy) DeleteZone(w http.ResponseWriter, request *http.Requ
 		writeMutationError(w, requestID, err)
 		return
 	}
-	metadata := AccessMetadataFromContext(request.Context())
-	metadata.SetOperationID(plan.Intent.OperationID)
-	response, err := proxy.Upstream.Forward(func(client api.ClientInterface) (*http.Response, error) {
-		return client.DeleteZone(request.Context(), serverID, zoneID)
-	})
+	deletion := zoneDeletion{
+		upstream: proxy.Upstream, recordOutcome: proxy.Lifecycle.RecordZoneDeletionOutcome,
+		timeout: proxy.MutationTimeout, auditFailures: proxy.AuditFailures,
+	}
+	response, _, err := deletion.execute(request.Context(), serverID, plan)
 	if err != nil {
-		metadata.SetUpstreamOutcome("transport_error")
-		proxy.recordZoneDeletionOutcome(request.Context(), plan, database.ZoneDeletionOutcomeInput{
-			Result: database.ZoneDeletionUnknown, ResponseClass: "transport_error",
-		})
 		httpapi.WriteError(w, requestID, err)
 		return
 	}
-	metadata.SetUpstreamOutcome("response")
-	result := database.ZoneDeletionFailed
-	if response.StatusCode == http.StatusNotFound {
-		result = database.ZoneDeletionNotFound
-	} else if response.StatusCode >= 200 && response.StatusCode < 300 {
-		result = database.ZoneDeletionDeleted
-	}
-	_, responseClass := classifyMutationResponse(response.StatusCode)
-	proxy.recordZoneDeletionOutcome(request.Context(), plan, database.ZoneDeletionOutcomeInput{
-		Result: result, ResponseClass: responseClass, ResponseCode: &response.StatusCode,
-	})
 	if err := upstream.Relay(w, response, requestID); err != nil {
-		metadata.SetUpstreamOutcome("relay_error")
+		AccessMetadataFromContext(request.Context()).SetUpstreamOutcome("relay_error")
 	}
 }
 
@@ -559,14 +544,6 @@ func (proxy *PowerDNSProxy) recordOutcome(parent context.Context, intent databas
 	input.IntentEventID = intent.EventID
 	input.OperationID = intent.OperationID
 	if _, err := proxy.Mutations.RecordDNSOutcome(ctx, input); err != nil && proxy.AuditFailures != nil {
-		proxy.AuditFailures.ReportAuditFailure()
-	}
-}
-
-func (proxy *PowerDNSProxy) recordZoneDeletionOutcome(parent context.Context, plan database.ZoneDeletionPlan, input database.ZoneDeletionOutcomeInput) {
-	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), proxy.MutationTimeout)
-	defer cancel()
-	if _, err := proxy.Lifecycle.RecordZoneDeletionOutcome(ctx, plan, input); err != nil && proxy.AuditFailures != nil {
 		proxy.AuditFailures.ReportAuditFailure()
 	}
 }
