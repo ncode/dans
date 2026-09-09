@@ -40,11 +40,11 @@ dev-contract:
 	@./scripts/dev-contract.sh
 
 benchmark-check:
-	go test ./internal/identifier ./internal/dnsname ./internal/httpapi ./internal/httpserver -run '^$$' -bench '^Benchmark' -benchtime=1x -benchmem
+	go test ./internal/identifier ./internal/dnsname ./internal/httpapi ./internal/httpserver ./internal/upstream -run '^$$' -bench '^Benchmark' -benchtime=1x -benchmem
 
 benchmark-postgres-check:
 	@test -n "$$DANS_TEST_DATABASE_URL" || { echo "benchmark-postgres-check requires DANS_TEST_DATABASE_URL" >&2; exit 2; }
-	go test -tags=integration ./internal/database -run '^$$' -bench '^BenchmarkAuthorizeRRsetBatch$$' -benchtime=1x -benchmem
+	go test -tags=integration ./internal/database ./internal/httpserver -run '^$$' -bench '^Benchmark(Authorize|Authenticate|RuntimeCompatibility|Authorization|DNSAudit|ApplicationPostgres)' -benchtime=1x -benchmem
 
 generate: openapi-source-verify
 	go tool sqlc generate -f sqlc.yaml

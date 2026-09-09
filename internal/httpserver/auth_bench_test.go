@@ -61,6 +61,9 @@ func BenchmarkAuthenticationMiddleware(b *testing.B) {
 			for b.Loop() {
 				response.status = 0
 				handler.ServeHTTP(&response, request)
+				if response.status != http.StatusNoContent {
+					b.Fatalf("status = %d, want %d", response.status, http.StatusNoContent)
+				}
 			}
 			if response.status != http.StatusNoContent {
 				b.Fatalf("status = %d, want %d", response.status, http.StatusNoContent)
