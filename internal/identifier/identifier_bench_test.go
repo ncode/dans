@@ -12,6 +12,9 @@ func BenchmarkValidateToken(b *testing.B) {
 	var err error
 	for b.Loop() {
 		err = ValidateToken(benchmarkToken)
+		if err != nil {
+			b.Fatal(err)
+		}
 	}
 	if err != nil {
 		b.Fatalf("ValidateToken(%q): %v", benchmarkToken, err)

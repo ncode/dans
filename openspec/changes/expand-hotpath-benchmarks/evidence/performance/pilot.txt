@@ -1,0 +1,12 @@
+BenchmarkAuthorizationDeniedWrite/1/Partial=false-4	2000	813202	ns/op	2000	final-rows	0	initial-rows	8738	B/op	129	allocs/op
+BenchmarkAuthorizationDeniedWrite/100/Partial=false-4	2000	1526531	ns/op	2000	final-rows	0	initial-rows	243210	B/op	2428	allocs/op
+BenchmarkAuthorizationDeniedWrite/100/Partial=true-4	2000	1350979	ns/op	2000	final-rows	0	initial-rows	195039	B/op	2814	allocs/op
+BenchmarkDNSAuditWrite/1/succeeded-4	2000	1381340	ns/op	4000	final-rows	0	initial-rows	9281	B/op	174	allocs/op
+BenchmarkDNSAuditWrite/1/failed-4	2000	1409491	ns/op	4000	final-rows	0	initial-rows	9279	B/op	174	allocs/op
+BenchmarkDNSAuditWrite/100/succeeded-4	2000	1770078	ns/op	4000	final-rows	0	initial-rows	80906	B/op	1563	allocs/op
+BenchmarkDNSAuditWrite/100/failed-4	2000	1873355	ns/op	4000	final-rows	0	initial-rows	80915	B/op	1563	allocs/op
+BenchmarkApplicationPostgresWrite/1-4	2000	2401865	ns/op	0.06	MB/s	4000	final-rows	0	initial-rows	188611	B/op	1756	allocs/op
+BenchmarkApplicationPostgresWrite/100-4	2000	4190035	ns/op	3.08	MB/s	4000	final-rows	0	initial-rows	1156061	B/op	20205	allocs/op
+BenchmarkApplicationPostgresWrite/Denied-4	2000	1120948	ns/op	0.24	MB/s	2000	final-rows	0	initial-rows	142762	B/op	1702	allocs/op
+BenchmarkApplicationPostgresParallelWrite/Write-4	2000	1107307	ns/op	4000	final-rows	4.000	gomaxprocs	0	initial-rows	16.00	pool-conns	0	reads	32.00	request-limit	4.000	workers	2000	writes	185087	B/op	1754	allocs/op
+BenchmarkApplicationPostgresParallelWrite/Mixed-4	2000	327298	ns/op	400.0	final-rows	4.000	gomaxprocs	0	initial-rows	16.00	pool-conns	1800	reads	32.00	request-limit	4.000	workers	200.0	writes	135278	B/op	922	allocs/op
