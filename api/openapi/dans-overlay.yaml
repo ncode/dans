@@ -197,6 +197,7 @@ actions:
             tags: [dans-identities]
             x-dans-access-class: operator-only
             parameters:
+              - $ref: "#/components/parameters/HandlePrefix"
               - $ref: "#/components/parameters/Limit"
               - $ref: "#/components/parameters/Cursor"
               - name: kind
@@ -343,6 +344,7 @@ actions:
             tags: [dans-groups]
             x-dans-access-class: operator-only
             parameters:
+              - $ref: "#/components/parameters/HandlePrefix"
               - $ref: "#/components/parameters/Limit"
               - $ref: "#/components/parameters/Cursor"
               - name: enabled
@@ -427,6 +429,7 @@ actions:
             tags: [dans-groups]
             x-dans-access-class: operator-only
             parameters:
+              - $ref: "#/components/parameters/HandlePrefix"
               - $ref: "#/components/parameters/Limit"
               - $ref: "#/components/parameters/Cursor"
             responses:
@@ -481,6 +484,7 @@ actions:
             tags: [dans-self-service]
             x-dans-access-class: authenticated-read
             parameters:
+              - $ref: "#/components/parameters/HandlePrefix"
               - $ref: "#/components/parameters/Limit"
               - $ref: "#/components/parameters/Cursor"
             responses:
@@ -1552,4 +1556,175 @@ actions:
               items:
                 type: array
                 items: {$ref: "#/components/schemas/SelfDelegation"}
+              next_cursor: {$ref: "#/components/schemas/NullableString"}
+
+  - target: "$"
+    description: Complete management relationships, current credential metadata, and audit downloads.
+    update:
+      paths:
+        "/dans/identities/{identity_id}/groups":
+          parameters:
+            - $ref: "#/components/parameters/IdentityID"
+          get:
+            operationId: listIdentityGroups
+            x-dans-access-class: operator-only
+            parameters:
+              - $ref: "#/components/parameters/Limit"
+              - $ref: "#/components/parameters/Cursor"
+              - $ref: "#/components/parameters/HandlePrefix"
+            responses:
+              "200":
+                description: A page of the identity's groups.
+                content:
+                  application/json:
+                    schema: {$ref: "#/components/schemas/GroupPage"}
+              default: {$ref: "#/components/responses/DansError"}
+        "/dans/identities/{identity_id}/delegations":
+          parameters:
+            - $ref: "#/components/parameters/IdentityID"
+          get:
+            operationId: listIdentityDelegations
+            x-dans-access-class: operator-only
+            parameters:
+              - $ref: "#/components/parameters/Limit"
+              - $ref: "#/components/parameters/Cursor"
+            responses:
+              "200":
+                description: A page of the identity's delegations.
+                content:
+                  application/json:
+                    schema: {$ref: "#/components/schemas/SelfDelegationPage"}
+              default: {$ref: "#/components/responses/DansError"}
+        "/dans/identities/{identity_id}/assignments":
+          parameters:
+            - $ref: "#/components/parameters/IdentityID"
+          get:
+            operationId: listIdentityAssignments
+            x-dans-access-class: operator-only
+            parameters:
+              - $ref: "#/components/parameters/Limit"
+              - $ref: "#/components/parameters/Cursor"
+            responses:
+              "200":
+                description: A page of the identity's assignments.
+                content:
+                  application/json:
+                    schema: {$ref: "#/components/schemas/RetainedAssignmentPage"}
+              default: {$ref: "#/components/responses/DansError"}
+        "/dans/me/credential":
+          get:
+            operationId: getCurrentCredential
+            x-dans-access-class: authenticated-read
+            responses:
+              "200":
+                description: Identifier of the API token backing this credential, without secret material.
+                content:
+                  application/json:
+                    schema: {$ref: "#/components/schemas/CurrentCredential"}
+              default: {$ref: "#/components/responses/DansError"}
+        "/dans/audit-events/export":
+          get:
+            operationId: exportAuditEvents
+            x-dans-access-class: operator-only
+            description: Traverses live history in bounded pages, reauthenticating before each page. An interrupted transfer is incomplete; no cross-page snapshot is promised.
+            parameters:
+              - name: actor_id
+                in: query
+                schema: {$ref: "#/components/schemas/ResourceID"}
+              - name: action
+                in: query
+                schema: {type: string, minLength: 1, maxLength: 1024}
+              - name: target_type
+                in: query
+                schema: {type: string, minLength: 1, maxLength: 1024}
+              - name: target_id
+                in: query
+                schema: {type: string, minLength: 1, maxLength: 1024}
+              - name: result
+                in: query
+                schema: {type: string, minLength: 1, maxLength: 1024}
+            responses:
+              "200":
+                description: All traversed matching events as NDJSON. Transport failure means incomplete export.
+                headers:
+                  Content-Disposition:
+                    schema: {type: string}
+                content:
+                  application/x-ndjson:
+                    schema: {type: string, format: binary}
+              default: {$ref: "#/components/responses/DansError"}
+      components:
+        parameters:
+          HandlePrefix:
+            name: handle_prefix
+            in: query
+            description: Literal case-sensitive handle prefix, intersected with any exact handle filter.
+            schema: {type: string, minLength: 1, maxLength: 63, pattern: "^[a-z0-9][a-z0-9._-]*$"}
+        schemas:
+          CurrentCredential:
+            type: object
+            additionalProperties: false
+            required: [token_id]
+            properties:
+              token_id: {$ref: "#/components/schemas/ResourceID"}
+          ZoneBinding:
+            properties:
+              deletion_state:
+                type: string
+                enum: [no_attempt, pending, failed, unknown, completed, confirmed_absent]
+                description: Advisory reconciliation state, included on the binding detail read.
+              recovery_actions:
+                type: array
+                description: Advisory actions; mutations recheck current state and upstream observations.
+                items: {type: string, enum: [observe, confirm_absent, retry_delete, rebind]}
+          RetainedAssignment:
+            type: object
+            additionalProperties: false
+            required: [identity_enabled, group_enabled, group_handle, binding_status, effective, zone_id, zone_name, id, zone_binding_id, grantee_kind, grantee_id, selectors, record_types, change_kinds, created_at, revoked_at]
+            properties:
+              zone_id: {type: string}
+              zone_name: {type: string}
+              id:
+                $ref: "#/components/schemas/ResourceID"
+              zone_binding_id:
+                $ref: "#/components/schemas/ResourceID"
+              grantee_kind:
+                type: string
+                enum: [identity, group]
+              grantee_id:
+                $ref: "#/components/schemas/ResourceID"
+              selectors:
+                type: array
+                minItems: 1
+                items:
+                  $ref: "#/components/schemas/Selector"
+              record_types:
+                type: array
+                nullable: true
+                items:
+                  type: string
+              change_kinds:
+                type: array
+                nullable: true
+                items:
+                  type: string
+                  enum: [REPLACE, DELETE, EXTEND, PRUNE]
+              created_at:
+                type: string
+                format: date-time
+              revoked_at:
+                $ref: "#/components/schemas/NullableTimestamp"
+              identity_enabled: {type: boolean}
+              group_enabled: {type: [boolean, "null"]}
+              group_handle: {$ref: "#/components/schemas/NullableString"}
+              binding_status: {type: string, enum: [active, retired]}
+              effective: {type: boolean}
+          RetainedAssignmentPage:
+            type: object
+            additionalProperties: false
+            required: [items, next_cursor]
+            properties:
+              items:
+                type: array
+                items: {$ref: "#/components/schemas/RetainedAssignment"}
               next_cursor: {$ref: "#/components/schemas/NullableString"}

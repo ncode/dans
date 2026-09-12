@@ -120,7 +120,7 @@ In the second exact selector, `*` is the literal wildcard owner label, not a pat
 - Shared authenticated DNS reads; no per-identity read filtering.
 - No inheritance across a retired/recreated zone lifetime. Out-of-band PowerDNS lifecycle changes are unsupported and are not represented as DANS-audited mutations.
 - Coordinated same-version upgrades only. Mixed-version rolling operation and in-place downgrade after migration are unsupported.
-- No PowerDNS metrics/web UI/undocumented-route proxy, generic CLI raw-request escape hatch, web UI, Helm chart/operator, application metrics, or tracing.
+- No PowerDNS metrics/web UI/undocumented-route proxy, generic CLI raw-request escape hatch, Helm chart/operator, application metrics, or tracing.
 - Audit history is append-only and retained indefinitely; v1 has no edit, delete, or prune operation.
 
 These limits are security boundaries, not implicit fallbacks. DANS fails closed when current PostgreSQL authorization state, audit persistence, schema compatibility, or the supported upstream is unavailable.

@@ -24,6 +24,7 @@ import (
 // binding and explicit deletion reconciliation.
 type ZoneManagementStore interface {
 	EnsureZoneBinding(context.Context, database.Actor, database.ZoneBindingInput) (database.ZoneBinding, error)
+	GetZoneBindingRecovery(context.Context, database.Actor, string) (database.ZoneBindingRecovery, error)
 	GetZoneBinding(context.Context, database.Actor, string) (database.ZoneBinding, error)
 	ListZoneBindings(context.Context, database.Actor, database.ZoneBindingListOptions) (database.ZoneBindingPage, error)
 	ObserveZoneBinding(context.Context, database.Actor, database.ZoneObservationInput) (database.ZoneObservation, error)
@@ -121,6 +122,17 @@ func (handler *ZoneHandler) GetZoneBinding(ctx context.Context, request api.GetZ
 	if err != nil {
 		return nil, err
 	}
+	recovery, err := handler.store.GetZoneBindingRecovery(ctx, actor, binding.ID)
+	if err != nil {
+		return getZoneBindingFailure(err), nil
+	}
+	state := api.ZoneBindingDeletionState(recovery.DeletionState)
+	actions := make([]api.ZoneBindingRecoveryActions, len(recovery.Actions))
+	for i, action := range recovery.Actions {
+		actions[i] = api.ZoneBindingRecoveryActions(action)
+	}
+	response.DeletionState = &state
+	response.RecoveryActions = &actions
 	AccessMetadataFromContext(ctx).SetResourceID(binding.ID)
 	return api.GetZoneBinding200JSONResponse(response), nil
 }

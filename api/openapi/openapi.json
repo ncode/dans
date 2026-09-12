@@ -33,6 +33,17 @@
           "$ref": "#/components/schemas/ResourceID"
         }
       },
+      "HandlePrefix": {
+        "description": "Literal case-sensitive handle prefix, intersected with any exact handle filter.",
+        "in": "query",
+        "name": "handle_prefix",
+        "schema": {
+          "maxLength": 63,
+          "minLength": 1,
+          "pattern": "^[a-z0-9][a-z0-9._-]*$",
+          "type": "string"
+        }
+      },
       "IdentityID": {
         "in": "path",
         "name": "identity_id",
@@ -445,6 +456,18 @@
           }
         },
         "title": "Cryptokey",
+        "type": "object"
+      },
+      "CurrentCredential": {
+        "additionalProperties": false,
+        "properties": {
+          "token_id": {
+            "$ref": "#/components/schemas/ResourceID"
+          }
+        },
+        "required": [
+          "token_id"
+        ],
         "type": "object"
       },
       "Delegation": {
@@ -1046,6 +1069,127 @@
         "format": "uuid",
         "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
         "type": "string"
+      },
+      "RetainedAssignment": {
+        "additionalProperties": false,
+        "properties": {
+          "binding_status": {
+            "enum": [
+              "active",
+              "retired"
+            ],
+            "type": "string"
+          },
+          "change_kinds": {
+            "items": {
+              "enum": [
+                "REPLACE",
+                "DELETE",
+                "EXTEND",
+                "PRUNE"
+              ],
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "effective": {
+            "type": "boolean"
+          },
+          "grantee_id": {
+            "$ref": "#/components/schemas/ResourceID"
+          },
+          "grantee_kind": {
+            "enum": [
+              "identity",
+              "group"
+            ],
+            "type": "string"
+          },
+          "group_enabled": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "group_handle": {
+            "$ref": "#/components/schemas/NullableString"
+          },
+          "id": {
+            "$ref": "#/components/schemas/ResourceID"
+          },
+          "identity_enabled": {
+            "type": "boolean"
+          },
+          "record_types": {
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "revoked_at": {
+            "$ref": "#/components/schemas/NullableTimestamp"
+          },
+          "selectors": {
+            "items": {
+              "$ref": "#/components/schemas/Selector"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "zone_binding_id": {
+            "$ref": "#/components/schemas/ResourceID"
+          },
+          "zone_id": {
+            "type": "string"
+          },
+          "zone_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "identity_enabled",
+          "group_enabled",
+          "group_handle",
+          "binding_status",
+          "effective",
+          "zone_id",
+          "zone_name",
+          "id",
+          "zone_binding_id",
+          "grantee_kind",
+          "grantee_id",
+          "selectors",
+          "record_types",
+          "change_kinds",
+          "created_at",
+          "revoked_at"
+        ],
+        "type": "object"
+      },
+      "RetainedAssignmentPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RetainedAssignment"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "$ref": "#/components/schemas/NullableString"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "type": "object"
       },
       "RingStatisticItem": {
         "additionalProperties": false,
@@ -1689,12 +1833,37 @@
             "format": "date-time",
             "type": "string"
           },
+          "deletion_state": {
+            "description": "Advisory reconciliation state, included on the binding detail read.",
+            "enum": [
+              "no_attempt",
+              "pending",
+              "failed",
+              "unknown",
+              "completed",
+              "confirmed_absent"
+            ],
+            "type": "string"
+          },
           "generation": {
             "minimum": 1,
             "type": "integer"
           },
           "id": {
             "$ref": "#/components/schemas/ResourceID"
+          },
+          "recovery_actions": {
+            "description": "Advisory actions; mutations recheck current state and upstream observations.",
+            "items": {
+              "enum": [
+                "observe",
+                "confirm_absent",
+                "retry_delete",
+                "rebind"
+              ],
+              "type": "string"
+            },
+            "type": "array"
           },
           "retired_at": {
             "$ref": "#/components/schemas/NullableTimestamp"
@@ -1937,6 +2106,81 @@
         "x-dans-access-class": "operator-only"
       }
     },
+    "/dans/audit-events/export": {
+      "get": {
+        "description": "Traverses live history in bounded pages, reauthenticating before each page. An interrupted transfer is incomplete; no cross-page snapshot is promised.",
+        "operationId": "exportAuditEvents",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "actor_id",
+            "schema": {
+              "$ref": "#/components/schemas/ResourceID"
+            }
+          },
+          {
+            "in": "query",
+            "name": "action",
+            "schema": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target_type",
+            "schema": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target_id",
+            "schema": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "result",
+            "schema": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/x-ndjson": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "All traversed matching events as NDJSON. Transport failure means incomplete export.",
+            "headers": {
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/DansError"
+          }
+        },
+        "x-dans-access-class": "operator-only"
+      }
+    },
     "/dans/delegations": {
       "get": {
         "operationId": "listDelegations",
@@ -2075,6 +2319,9 @@
       "get": {
         "operationId": "listGroups",
         "parameters": [
+          {
+            "$ref": "#/components/parameters/HandlePrefix"
+          },
           {
             "$ref": "#/components/parameters/Limit"
           },
@@ -2220,6 +2467,9 @@
         "operationId": "listGroupMembers",
         "parameters": [
           {
+            "$ref": "#/components/parameters/HandlePrefix"
+          },
+          {
             "$ref": "#/components/parameters/Limit"
           },
           {
@@ -2296,6 +2546,9 @@
       "get": {
         "operationId": "listIdentities",
         "parameters": [
+          {
+            "$ref": "#/components/parameters/HandlePrefix"
+          },
           {
             "$ref": "#/components/parameters/Limit"
           },
@@ -2454,6 +2707,111 @@
         "x-dans-access-class": "operator-only"
       }
     },
+    "/dans/identities/{identity_id}/assignments": {
+      "get": {
+        "operationId": "listIdentityAssignments",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetainedAssignmentPage"
+                }
+              }
+            },
+            "description": "A page of the identity's assignments."
+          },
+          "default": {
+            "$ref": "#/components/responses/DansError"
+          }
+        },
+        "x-dans-access-class": "operator-only"
+      },
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdentityID"
+        }
+      ]
+    },
+    "/dans/identities/{identity_id}/delegations": {
+      "get": {
+        "operationId": "listIdentityDelegations",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SelfDelegationPage"
+                }
+              }
+            },
+            "description": "A page of the identity's delegations."
+          },
+          "default": {
+            "$ref": "#/components/responses/DansError"
+          }
+        },
+        "x-dans-access-class": "operator-only"
+      },
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdentityID"
+        }
+      ]
+    },
+    "/dans/identities/{identity_id}/groups": {
+      "get": {
+        "operationId": "listIdentityGroups",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/HandlePrefix"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupPage"
+                }
+              }
+            },
+            "description": "A page of the identity's groups."
+          },
+          "default": {
+            "$ref": "#/components/responses/DansError"
+          }
+        },
+        "x-dans-access-class": "operator-only"
+      },
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdentityID"
+        }
+      ]
+    },
     "/dans/identities/{identity_id}/tokens": {
       "get": {
         "operationId": "listIdentityTokens",
@@ -2577,6 +2935,27 @@
         "x-dans-access-class": "authenticated-read"
       }
     },
+    "/dans/me/credential": {
+      "get": {
+        "operationId": "getCurrentCredential",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentCredential"
+                }
+              }
+            },
+            "description": "Identifier of the API token backing this credential, without secret material."
+          },
+          "default": {
+            "$ref": "#/components/responses/DansError"
+          }
+        },
+        "x-dans-access-class": "authenticated-read"
+      }
+    },
     "/dans/me/delegations": {
       "get": {
         "operationId": "listCurrentIdentityDelegations",
@@ -2613,6 +2992,9 @@
       "get": {
         "operationId": "listCurrentIdentityGroups",
         "parameters": [
+          {
+            "$ref": "#/components/parameters/HandlePrefix"
+          },
           {
             "$ref": "#/components/parameters/Limit"
           },

@@ -51,7 +51,14 @@ func (sessions *BrowserSessions) Authentication(authenticator Authenticator) fun
 				httpapi.WriteError(w, RequestIDFromContext(request.Context()), httpapi.NewError(httpapi.KindUnavailable, errors.New("authentication dependency is not configured")))
 				return
 			}
-			actor, err := authenticator.Authenticate(request.Context(), credential)
+			authenticate := reauthenticate(func(ctx context.Context) (database.Actor, error) { return authenticator.Authenticate(ctx, credential) })
+			authCtx := request.Context()
+			var cancel context.CancelFunc
+			if isAuditExport(request) {
+				authCtx, cancel = context.WithTimeout(authCtx, auditExportPageTimeout)
+				defer cancel()
+			}
+			actor, err := authenticate(authCtx)
 			if errors.Is(err, database.ErrUnauthenticated) {
 				httpapi.WriteError(w, RequestIDFromContext(request.Context()), httpapi.NewError(httpapi.KindUnauthenticated, err))
 				return
@@ -61,6 +68,9 @@ func (sessions *BrowserSessions) Authentication(authenticator Authenticator) fun
 				return
 			}
 			ctx := context.WithValue(request.Context(), actorKey, actor)
+			if isAuditExport(request) {
+				ctx = context.WithValue(ctx, reauthenticateKey, authenticate)
+			}
 			next.ServeHTTP(w, request.WithContext(ctx))
 		})
 	}

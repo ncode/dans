@@ -48,7 +48,7 @@ func NewDANSOperations(config GeneratedConfig) (DANSOperations, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewGeneratedServer(browse), nil
+	return &auditExportServer{ServerInterface: NewGeneratedServer(browse), store: config.Store}, nil
 }
 
 // strictRoot is unreachable for compatibility operations because
