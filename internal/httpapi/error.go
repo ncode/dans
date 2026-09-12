@@ -177,27 +177,32 @@ func (Secret) LogValue() slog.Value { return slog.StringValue(Redacted) }
 // MarshalJSON prevents accidental secret disclosure in JSON diagnostics.
 func (Secret) MarshalJSON() ([]byte, error) { return json.Marshal(Redacted) }
 
-// RedactText removes explicit secret values and supported DANS token syntax.
+// RedactText removes explicit secret values and supported token/session syntax.
 func RedactText(text string, secrets ...Secret) string {
 	for _, secret := range secrets {
 		if secret.value != "" {
 			text = strings.ReplaceAll(text, secret.value, Redacted)
 		}
 	}
-	const tokenLength = len(identifier.TokenPrefix) + 43
-	for start := 0; start+tokenLength <= len(text); {
-		offset := strings.Index(text[start:], identifier.TokenPrefix)
-		if offset < 0 {
-			break
+	for _, prefix := range []string{identifier.TokenPrefix, "session_v1_"} {
+		credentialLength := len(prefix) + 43
+		for start := 0; start+credentialLength <= len(text); {
+			offset := strings.Index(text[start:], prefix)
+			if offset < 0 {
+				break
+			}
+			offset += start
+			if offset+credentialLength > len(text) {
+				break
+			}
+			candidate := text[offset : offset+credentialLength]
+			if identifier.ValidateToken(identifier.TokenPrefix+candidate[len(prefix):]) == nil {
+				text = text[:offset] + Redacted + text[offset+credentialLength:]
+				start = offset + len(Redacted)
+				continue
+			}
+			start = offset + len(prefix)
 		}
-		offset += start
-		candidate := text[offset : offset+tokenLength]
-		if identifier.ValidateToken(candidate) == nil {
-			text = text[:offset] + Redacted + text[offset+tokenLength:]
-			start = offset + len(Redacted)
-			continue
-		}
-		start = offset + len(identifier.TokenPrefix)
 	}
 	return text
 }

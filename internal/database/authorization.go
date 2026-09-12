@@ -53,7 +53,8 @@ type authorizationTuple struct {
 
 // AuthorizeRRsetBatch evaluates every tuple against one current database statement.
 func (s *Store) AuthorizeRRsetBatch(ctx context.Context, token, requestID, upstream, powerDNSZoneID string, tuples []RRsetTuple) (AuthorizationDecision, error) {
-	if identifier.ValidateToken(token) != nil {
+	isSession := ValidBrowserSession(token)
+	if !isSession && identifier.ValidateToken(token) != nil {
 		return AuthorizationDecision{}, ErrUnauthenticated
 	}
 	if requestID == "" || len(requestID) > 128 || upstream == "" || powerDNSZoneID == "" || len(tuples) == 0 || len(tuples) > MaxRRsetBatch {
@@ -82,7 +83,7 @@ func (s *Store) AuthorizeRRsetBatch(ctx context.Context, token, requestID, upstr
 	defer rollback(tx)
 	q := New(tx)
 	rows, err := q.AuthorizeRRsetBatch(ctx, AuthorizeRRsetBatchParams{
-		TokenDigest: digest[:], Tuples: encoded, Upstream: upstream, PowerDNSZoneID: powerDNSZoneID,
+		CredentialDigest: digest[:], IsSession: isSession, Tuples: encoded, Upstream: upstream, PowerDNSZoneID: powerDNSZoneID,
 	})
 	if err != nil {
 		return AuthorizationDecision{}, fmt.Errorf("authorize RRset batch: %w", err)

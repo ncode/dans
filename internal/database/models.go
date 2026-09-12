@@ -42,6 +42,50 @@ type AuditEvent struct {
 	DeadlineAt           pgtype.Timestamptz `db:"deadline_at"`
 }
 
+type BrowseChange struct {
+	Zone       string             `db:"zone"`
+	Operation  string             `db:"operation"`
+	Name       string             `db:"name"`
+	Type       string             `db:"type"`
+	ReadyAt    pgtype.Timestamptz `db:"ready_at"`
+	ChangedAt  pgtype.Timestamptz `db:"changed_at"`
+	Processed  bool               `db:"processed"`
+	Lease      *string            `db:"lease"`
+	LeaseUntil pgtype.Timestamptz `db:"lease_until"`
+}
+
+type BrowseRrset struct {
+	Zone       string `db:"zone"`
+	Generation string `db:"generation"`
+	Name       string `db:"name"`
+	Type       string `db:"type"`
+	Payload    []byte `db:"payload"`
+}
+
+type BrowseZone struct {
+	ID             string             `db:"id"`
+	Upstream       string             `db:"upstream"`
+	ZoneID         string             `db:"zone_id"`
+	Generation     *string            `db:"generation"`
+	Revision       int64              `db:"revision"`
+	CursorKey      []byte             `db:"cursor_key"`
+	LastViewedAt   pgtype.Timestamptz `db:"last_viewed_at"`
+	RefreshedAt    pgtype.Timestamptz `db:"refreshed_at"`
+	Error          *string            `db:"error"`
+	FullRequested  bool               `db:"full_requested"`
+	FullLease      *string            `db:"full_lease"`
+	FullLeaseUntil pgtype.Timestamptz `db:"full_lease_until"`
+	FullStartedAt  pgtype.Timestamptz `db:"full_started_at"`
+	RetryAt        pgtype.Timestamptz `db:"retry_at"`
+}
+
+type BrowserSession struct {
+	Digest    []byte             `db:"digest"`
+	TokenID   string             `db:"token_id"`
+	CreatedAt pgtype.Timestamptz `db:"created_at"`
+	ExpiresAt pgtype.Timestamptz `db:"expires_at"`
+}
+
 type Delegation struct {
 	ID                  string             `db:"id"`
 	ZoneBindingID       string             `db:"zone_binding_id"`

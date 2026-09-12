@@ -52,6 +52,7 @@ type Config struct {
 	Endpoint                      string `mapstructure:"endpoint" json:"endpoint"`
 	Output                        string `mapstructure:"output" json:"output"`
 	Listen                        string `mapstructure:"listen" json:"listen"`
+	BrowserCookieMode             string `mapstructure:"browser_cookie_mode" json:"browser_cookie_mode"`
 	APITokenFile                  string `mapstructure:"api_token_file" json:"api_token_file"`
 	DatabaseURLFile               string `mapstructure:"database_url_file" json:"database_url_file"`
 	PowerDNSURL                   string `mapstructure:"powerdns_url" json:"powerdns_url"`
@@ -87,6 +88,7 @@ var configBindings = []struct {
 	{key: "endpoint", flag: "endpoint", env: "DANS_ENDPOINT"},
 	{key: "output", flag: "output", env: "DANS_OUTPUT"},
 	{key: "listen", flag: "listen", env: "DANS_LISTEN"},
+	{key: "browser_cookie_mode", flag: "browser-cookie-mode", env: "DANS_BROWSER_COOKIE_MODE"},
 	{key: "api_token_file", flag: "api-token-file", env: "DANS_API_TOKEN_FILE"},
 	{key: "database_url_file", flag: "database-url-file", env: "DANS_DATABASE_URL_FILE"},
 	{key: "powerdns_url", flag: "powerdns-url", env: "DANS_POWERDNS_URL"},
@@ -120,6 +122,7 @@ func addConfigFlags(root *cobra.Command) {
 	flags.String("endpoint", "", "DANS API endpoint")
 	flags.String("output", "", "Output format: text or json")
 	flags.String("listen", "", "HTTP listen address")
+	flags.String("browser-cookie-mode", "", "Browser cookies: secure (default) or development-http (local development only)")
 	flags.String("api-token-file", "", "File containing the DANS API token")
 	flags.String("database-url-file", "", "File containing the PostgreSQL URL")
 	flags.String("powerdns-url", "", "PowerDNS API endpoint")
@@ -152,6 +155,7 @@ func loadConfig(cmd *cobra.Command, scope configScope) (Config, error) {
 	v.SetDefault("endpoint", defaultEndpoint)
 	v.SetDefault("output", "text")
 	v.SetDefault("listen", defaultListen)
+	v.SetDefault("browser_cookie_mode", "secure")
 	v.SetDefault("powerdns_upstream", defaultPowerDNSUpstream)
 	v.SetDefault("powerdns_timeout", defaultPowerDNSTimeout)
 	v.SetDefault("database_max_connections", defaultDatabaseMaxConnections)

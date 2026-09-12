@@ -67,6 +67,7 @@ build)
 		exit 2
 		;;
 	esac
+	make --no-print-directory frontend
 	temporary=$(mktemp -d "${TMPDIR:-/tmp}/dans-release.XXXXXX")
 	trap 'rm -rf "$temporary"' EXIT HUP INT TERM
 	for arch in amd64 arm64; do

@@ -48,8 +48,8 @@ func TestMigrate_concurrentCallersSerialize(t *testing.T) {
 	if err := conn.QueryRow(t.Context(), "SELECT count(*) FROM schema_migrations").Scan(&count); err != nil {
 		t.Fatalf("count schema_migrations: %v", err)
 	}
-	if count != 1 {
-		t.Errorf("schema_migrations rows = %d, want 1", count)
+	if count != 3 {
+		t.Errorf("schema_migrations rows = %d, want 3", count)
 	}
 }
 

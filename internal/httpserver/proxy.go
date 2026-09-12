@@ -21,6 +21,8 @@ import (
 // this interface narrow makes the compiler prove that PowerDNSProxy explicitly
 // implements every upstream operation rather than inheriting one by accident.
 type DANSOperations interface {
+	BrowseRRsets(http.ResponseWriter, *http.Request, string, string, api.BrowseRRsetsParams)
+	RefreshRRsets(http.ResponseWriter, *http.Request, string, string)
 	GetAPIDocument(http.ResponseWriter, *http.Request)
 	ListAuditEvents(http.ResponseWriter, *http.Request, api.ListAuditEventsParams)
 	ListDelegations(http.ResponseWriter, *http.Request, api.ListDelegationsParams)
@@ -62,6 +64,7 @@ type DANSOperations interface {
 // client. The embedded handler supplies only the DANS and root operations.
 type PowerDNSProxy struct {
 	DANSOperations
+	BrowserSessions   *BrowserSessions
 	Upstream          *upstream.Client
 	Mutations         RRsetMutationStore
 	Lifecycle         ZoneLifecycleStore
@@ -472,12 +475,12 @@ func (proxy *PowerDNSProxy) PatchZone(w http.ResponseWriter, request *http.Reque
 			Owner: rrset.Name, RecordType: rrset.Type, ChangeKind: string(rrset.Changetype),
 		}
 	}
-	tokens := request.Header.Values("X-API-Key")
-	if len(tokens) != 1 {
+	credential, err := proxy.BrowserSessions.requestCredential(request)
+	if err != nil {
 		httpapi.WriteError(w, requestID, httpapi.NewError(httpapi.KindUnauthenticated, database.ErrUnauthenticated))
 		return
 	}
-	decision, err := proxy.Mutations.AuthorizeRRsetBatch(request.Context(), tokens[0], requestID, proxy.UpstreamID, string(zoneID), tuples)
+	decision, err := proxy.Mutations.AuthorizeRRsetBatch(request.Context(), credential, requestID, proxy.UpstreamID, string(zoneID), tuples)
 	if err != nil {
 		if errors.Is(err, database.ErrAuditUnavailable) && proxy.AuditFailures != nil {
 			proxy.AuditFailures.ReportAuditFailure()

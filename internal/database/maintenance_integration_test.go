@@ -17,7 +17,7 @@ func TestMigrationStatusDoesNotMutateAndReportsCompatibility(t *testing.T) {
 	if err != nil {
 		t.Fatalf("MigrationStatus(empty) error = %v", err)
 	}
-	if status.CurrentVersion != 0 || status.LatestVersion != 1 || !status.Compatible {
+	if status.CurrentVersion != 0 || status.LatestVersion != 3 || !status.Compatible {
 		t.Errorf("MigrationStatus(empty) = %+v", status)
 	}
 	var ledgerExists bool
@@ -32,7 +32,7 @@ func TestMigrationStatusDoesNotMutateAndReportsCompatibility(t *testing.T) {
 		t.Fatalf("Migrate() error = %v", err)
 	}
 	status, err = MigrationStatus(t.Context(), conn)
-	if err != nil || status.CurrentVersion != 1 || status.LatestVersion != 1 || !status.Compatible {
+	if err != nil || status.CurrentVersion != 3 || status.LatestVersion != 3 || !status.Compatible {
 		t.Fatalf("MigrationStatus(current) = %+v, %v", status, err)
 	}
 	if _, err := conn.Exec(t.Context(), `UPDATE schema_migrations SET checksum = repeat('0', 64)`); err != nil {

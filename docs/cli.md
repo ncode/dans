@@ -23,6 +23,7 @@ Non-secret values resolve in this order: built-in default, selected JSON file, d
 | `endpoint` | `DANS_ENDPOINT` | `--endpoint` | `http://127.0.0.1:8080/api/v1` |
 | `output` | `DANS_OUTPUT` | `--output` | `text` |
 | `listen` | `DANS_LISTEN` | `--listen` | `127.0.0.1:8080` |
+| `browser_cookie_mode` | `DANS_BROWSER_COOKIE_MODE` | `--browser-cookie-mode` | `secure` |
 | `api_token_file` | `DANS_API_TOKEN_FILE` | `--api-token-file` | none |
 | `database_url_file` | `DANS_DATABASE_URL_FILE` | `--database-url-file` | none |
 | `powerdns_url` | `DANS_POWERDNS_URL` | `--powerdns-url` | none |
@@ -50,6 +51,8 @@ Non-secret values resolve in this order: built-in default, selected JSON file, d
 | `shutdown_timeout` | `DANS_SHUTDOWN_TIMEOUT` | `--shutdown-timeout` | `30s` |
 
 Only these environment names are bound. Empty environment values are treated as unset. JSON configuration represents durations and integer limits as strings, matching their environment and flag forms.
+
+`browser_cookie_mode` accepts `secure` or `development-http`. The latter is explicitly enabled by the loopback-only local Compose stack so browsers that reject Secure cookies over HTTP, including Safari, can sign in. It uses a separate `dans_dev_session` cookie without Secure; HttpOnly, SameSite=Strict, CSRF protection, expiry, and current authority checks remain enforced. Use the default `secure` mode behind HTTPS for deployed services. The mode is configured by the server operator and is never inferred from client-supplied Host or forwarding headers.
 
 ## Secrets
 
@@ -141,3 +144,7 @@ dans restore finalize (--identity-id ID | --handle HANDLE) --token-label LABEL -
 ```
 
 These commands use `DANS_DATABASE_URL` or `database_url_file` and never call the public HTTP API. Bootstrap only initializes an empty installation. Recovery only targets an existing enabled operator. Restore finalization requires `--confirm`, revokes all restored tokens, and prints the single replacement credential only once to stdout.
+
+## Console sign-in and CLI credentials
+
+The embedded browser console uses the same public API with a token-backed browser session. Existing CLI commands continue using `X-API-Key`; signing out of the console does not revoke that CLI token. Revoke a token through the existing token-management command to end all browser sessions associated with it. Identity and group administration remain in the CLI; the console reads those resources for delegation selection. See [the browser-session and indexed-browse API](api.md).

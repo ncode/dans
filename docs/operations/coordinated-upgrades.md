@@ -12,7 +12,10 @@ after a migration.
    in-flight work within its configured drain deadline.
 3. Stop every old-version instance.
 4. Run the target binary's forward-only `db migrate` command with the DDL
-   database role. API runtime credentials are intentionally insufficient.
+   database role. API runtime credentials are intentionally insufficient. Reapply
+   `internal/database/privileges/runtime.sql` with explicit role/schema/database
+   variables before starting the new binary; new session and index tables require
+   their reviewed runtime privileges.
 5. Start only instances built from that same target version.
 6. Wait for `/readyz` on every instance before reopening traffic. Readiness
    requires a writable PostgreSQL primary in the supported 16–18 range, the
@@ -44,3 +47,9 @@ restored copy from the original database, so starting an instance before restore
 finalization is unsupported and cannot be detected automatically. Never edit
 `schema_migrations`, copy authority into a new schema, or reopen traffic before
 the replacement credential has been issued.
+
+## Console state during upgrade and restore
+
+The console release adds browser-session and rebuildable RRset-index tables. No migration or eager zone collection runs on service startup. Session digests remain security-sensitive backup material even though the original API-token secrets are never retained. Restore finalization revokes the original tokens, which also invalidates all restored browser sessions.
+
+Index workers coordinate leases and publication in PostgreSQL across same-version instances. Stop workers with the service before migration or restore. A failed full read keeps the previous complete generation visibly stale; the next viewed-zone or manual refresh rebuilds it from PowerDNS API reads. The index does not permit unsupported external zone deletion/recreation or restore delegated authority from old zone lifetimes.

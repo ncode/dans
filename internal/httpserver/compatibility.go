@@ -36,7 +36,7 @@ type CompatibilityConfig struct {
 	PowerDNSCompatible func() bool
 }
 
-// Compatibility prevents authenticated traffic from reaching handlers while
+// Compatibility prevents authenticated traffic and sign-in from reaching handlers while
 // the database/schema is unusable, and prevents compatibility requests from
 // reaching an upstream outside the pinned PowerDNS surface.
 func Compatibility(config CompatibilityConfig) Middleware {
@@ -47,7 +47,7 @@ func Compatibility(config CompatibilityConfig) Middleware {
 				httpapi.WriteError(w, RequestIDFromContext(request.Context()), httpapi.NewError(httpapi.KindUnavailable, errors.New("request route is not classified")))
 				return
 			}
-			if route.AccessClass == contract.AccessAnonymous {
+			if route.AccessClass == contract.AccessAnonymous && route.OperationID != "createBrowserSession" {
 				next.ServeHTTP(w, request)
 				return
 			}
@@ -65,5 +65,5 @@ func Compatibility(config CompatibilityConfig) Middleware {
 }
 
 func isPowerDNSRoute(template string) bool {
-	return template == "/api/v1/error" || strings.HasPrefix(template, "/api/v1/servers")
+	return template == "/api/v1/error" || strings.HasPrefix(template, "/api/v1/servers") || strings.HasPrefix(template, "/api/v1/dans/servers/")
 }

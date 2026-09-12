@@ -10,3 +10,7 @@ deploy
 ogen-1.24.0
 ogen.tar.gz
 openspec
+
+web/node_modules
+web/test-results
+web/playwright-report

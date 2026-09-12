@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/ncode/dans/internal/database"
 	"github.com/ncode/dans/internal/httpserver"
 	"github.com/ncode/dans/internal/upstream"
+	"github.com/ncode/dans/internal/webconsole"
 )
 
 // RuntimeServer assembles and owns one production API instance.
@@ -49,13 +51,34 @@ func (runtime *RuntimeServer) Serve(ctx context.Context, config ServeConfig) err
 	if err != nil {
 		return fmt.Errorf("serve runtime: configure audit health: %w", err)
 	}
+	powerDNSCompatibility := &httpserver.PowerDNSCompatibility{}
 	workerCtx, stopWorkers := context.WithCancel(ctx)
-	defer stopWorkers()
-	go runOverdueIntentCloser(workerCtx, store, auditHealth, time.Second)
+	var workers sync.WaitGroup
+	defer func() { stopWorkers(); workers.Wait() }()
+	workers.Go(func() { runOverdueIntentCloser(workerCtx, store, auditHealth, time.Second) })
+	browseTransport := configured.upstream
+	browseTransport.Timeout = 5 * time.Minute
+	browseClient, err := upstream.New(browseTransport, config.PowerDNSAPIKey)
+	if err != nil {
+		return fmt.Errorf("serve runtime: configure browsing: %w", err)
+	}
+	workers.Go(func() {
+		for workerCtx.Err() == nil {
+			if err := database.NewBrowseWorker(store, browseClient, config.PowerDNSUpstream, powerDNSCompatibility.Compatible).Run(workerCtx); err != nil && workerCtx.Err() == nil {
+				slog.New(slog.NewJSONHandler(runtime.logOutput, nil)).Error("browsing worker stopped; retrying")
+			}
+			timer := time.NewTimer(time.Second)
+			select {
+			case <-workerCtx.Done():
+				timer.Stop()
+				return
+			case <-timer.C:
+			}
+		}
+	})
 	schemaProbe := func(ctx context.Context) error {
 		return database.CheckRuntimeCompatibility(ctx, pools.Readiness)
 	}
-	powerDNSCompatibility := &httpserver.PowerDNSCompatibility{}
 	powerDNSProbe := func(ctx context.Context) error {
 		err := upstreamClient.Probe(ctx)
 		powerDNSCompatibility.Record(err)
@@ -84,9 +107,10 @@ func (runtime *RuntimeServer) Serve(ctx context.Context, config ServeConfig) err
 		return fmt.Errorf("serve runtime: configure generated handlers: %w", err)
 	}
 	handler, err := httpserver.NewApplicationHandler(httpserver.ApplicationConfig{
-		Boundary:      configured.boundary,
-		Logger:        httpserver.NewJSONLogger(runtime.logOutput, slog.LevelInfo),
-		Authenticator: authenticator,
+		Boundary:        configured.boundary,
+		Logger:          httpserver.NewJSONLogger(runtime.logOutput, slog.LevelInfo),
+		Authenticator:   authenticator,
+		BrowserSessions: &httpserver.BrowserSessions{Store: store, DevelopmentHTTP: config.DevelopmentHTTP},
 		Schema: func(ctx context.Context) error {
 			return database.CheckRuntimeCompatibility(ctx, pools.Requests)
 		},
@@ -105,7 +129,7 @@ func (runtime *RuntimeServer) Serve(ctx context.Context, config ServeConfig) err
 	if err != nil {
 		return fmt.Errorf("serve runtime: configure HTTP application: %w", err)
 	}
-	httpServer, err := httpserver.NewHTTPServer(configured.server, handler)
+	httpServer, err := httpserver.NewHTTPServer(configured.server, webconsole.Alongside(handler))
 	if err != nil {
 		return fmt.Errorf("serve runtime: configure HTTP server: %w", err)
 	}

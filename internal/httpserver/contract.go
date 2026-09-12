@@ -68,17 +68,20 @@ func NewContractValidation(document *openapi3.T) (Middleware, error) {
 	return func(next http.Handler) http.Handler {
 		validated := validator(next)
 		return http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
-			if err := validateJSONSyntax(request); err != nil {
-				if httpapi.StatusCode(err) != http.StatusInternalServerError {
-					httpapi.WriteError(w, RequestIDFromContext(request.Context()), err)
+			signIn := request.Method == http.MethodPost && request.URL.Path == "/api/v1/dans/session"
+			if !signIn {
+				if err := validateJSONSyntax(request); err != nil {
+					if httpapi.StatusCode(err) != http.StatusInternalServerError {
+						httpapi.WriteError(w, RequestIDFromContext(request.Context()), err)
+						return
+					}
+					kind := httpapi.KindBadRequest
+					if errors.As(err, new(*http.MaxBytesError)) {
+						kind = httpapi.KindBodyTooLarge
+					}
+					httpapi.WriteError(w, RequestIDFromContext(request.Context()), httpapi.NewError(kind, err))
 					return
 				}
-				kind := httpapi.KindBadRequest
-				if errors.As(err, new(*http.MaxBytesError)) {
-					kind = httpapi.KindBodyTooLarge
-				}
-				httpapi.WriteError(w, RequestIDFromContext(request.Context()), httpapi.NewError(kind, err))
-				return
 			}
 			route, root := rootRoutes[request.Method+" "+request.URL.Path]
 			var parameters map[string]string
@@ -104,6 +107,12 @@ func NewContractValidation(document *openapi3.T) (Middleware, error) {
 			AccessMetadataFromContext(request.Context()).SetRoute(information.Template, information.OperationID)
 			ctx := context.WithValue(request.Context(), routeInfoKey, information)
 			request = request.WithContext(ctx)
+			if signIn && information.OperationID == "createBrowserSession" && information.Template == "/api/v1/dans/session" {
+				// The handler owns strict bounded credential decoding so invalid sign-in
+				// credentials have the same 401 shape. Authentication still checks CSRF.
+				next.ServeHTTP(w, request)
+				return
+			}
 			if root {
 				input := &openapi3filter.RequestValidationInput{
 					Request: request, Route: route, PathParams: parameters,

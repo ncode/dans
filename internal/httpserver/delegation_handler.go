@@ -139,7 +139,20 @@ func (handler *DelegationHandler) ListCurrentIdentityDelegations(ctx context.Con
 	if err != nil {
 		return listCurrentDelegationsFailure(err), nil
 	}
-	response, err := delegationPageResponse(result, "identity-delegations", filters)
+	items := make([]api.SelfDelegation, len(result.Items))
+	for i, item := range result.Items {
+		base, err := delegationResponse(item)
+		if err != nil {
+			return nil, err
+		}
+		kinds := make([]api.SelfDelegationChangeKinds, len(base.ChangeKinds))
+		for j, kind := range base.ChangeKinds {
+			kinds[j] = api.SelfDelegationChangeKinds(kind)
+		}
+		items[i] = api.SelfDelegation{Id: base.Id, ZoneBindingId: base.ZoneBindingId, ZoneId: item.ZoneID, ZoneName: item.ZoneName, GranteeId: base.GranteeId, GranteeKind: api.SelfDelegationGranteeKind(base.GranteeKind), Selectors: base.Selectors, RecordTypes: base.RecordTypes, ChangeKinds: kinds, CreatedAt: base.CreatedAt, RevokedAt: base.RevokedAt}
+	}
+	next, err := nextCursor(result.Next, "identity-delegations", filters)
+	response := api.SelfDelegationPage{Items: items, NextCursor: next}
 	if err != nil {
 		return nil, err
 	}

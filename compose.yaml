@@ -38,6 +38,7 @@ services:
     command: ["serve"]
     environment:
       DANS_LISTEN: 0.0.0.0:8080
+      DANS_BROWSER_COOKIE_MODE: development-http
       DANS_DATABASE_URL: postgres://dans_runtime:dans-runtime@postgres/dans?sslmode=disable
       DANS_POWERDNS_URL: http://powerdns:8081
       DANS_POWERDNS_UPSTREAM: dev

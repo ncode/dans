@@ -173,6 +173,30 @@ func (e RRSetChangeChangetype) Valid() bool {
 	}
 }
 
+// Defines values for RRsetBrowsePageState.
+const (
+	Indexing   RRsetBrowsePageState = "indexing"
+	Ready      RRsetBrowsePageState = "ready"
+	Refreshing RRsetBrowsePageState = "refreshing"
+	Stale      RRsetBrowsePageState = "stale"
+)
+
+// Valid indicates whether the value is a known member of the RRsetBrowsePageState enum.
+func (e RRsetBrowsePageState) Valid() bool {
+	switch e {
+	case Indexing:
+		return true
+	case Ready:
+		return true
+	case Refreshing:
+		return true
+	case Stale:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SearchResultCommentObjectType.
 const (
 	SearchResultCommentObjectTypeComment SearchResultCommentObjectType = "comment"
@@ -220,16 +244,58 @@ func (e SearchResultZoneObjectType) Valid() bool {
 
 // Defines values for SelectorKind.
 const (
-	Exact SelectorKind = "exact"
-	Glob  SelectorKind = "glob"
+	SelectorKindExact SelectorKind = "exact"
+	SelectorKindGlob  SelectorKind = "glob"
 )
 
 // Valid indicates whether the value is a known member of the SelectorKind enum.
 func (e SelectorKind) Valid() bool {
 	switch e {
-	case Exact:
+	case SelectorKindExact:
 		return true
-	case Glob:
+	case SelectorKindGlob:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SelfDelegationChangeKinds.
+const (
+	SelfDelegationChangeKindsDELETE  SelfDelegationChangeKinds = "DELETE"
+	SelfDelegationChangeKindsEXTEND  SelfDelegationChangeKinds = "EXTEND"
+	SelfDelegationChangeKindsPRUNE   SelfDelegationChangeKinds = "PRUNE"
+	SelfDelegationChangeKindsREPLACE SelfDelegationChangeKinds = "REPLACE"
+)
+
+// Valid indicates whether the value is a known member of the SelfDelegationChangeKinds enum.
+func (e SelfDelegationChangeKinds) Valid() bool {
+	switch e {
+	case SelfDelegationChangeKindsDELETE:
+		return true
+	case SelfDelegationChangeKindsEXTEND:
+		return true
+	case SelfDelegationChangeKindsPRUNE:
+		return true
+	case SelfDelegationChangeKindsREPLACE:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SelfDelegationGranteeKind.
+const (
+	SelfDelegationGranteeKindGroup    SelfDelegationGranteeKind = "group"
+	SelfDelegationGranteeKindIdentity SelfDelegationGranteeKind = "identity"
+)
+
+// Valid indicates whether the value is a known member of the SelfDelegationGranteeKind enum.
+func (e SelfDelegationGranteeKind) Valid() bool {
+	switch e {
+	case SelfDelegationGranteeKindGroup:
+		return true
+	case SelfDelegationGranteeKindIdentity:
 		return true
 	default:
 		return false
@@ -350,6 +416,24 @@ func (e ListIdentitiesParamsKind) Valid() bool {
 	}
 }
 
+// Defines values for BrowseRRsetsParamsMatch.
+const (
+	BrowseRRsetsParamsMatchExact  BrowseRRsetsParamsMatch = "exact"
+	BrowseRRsetsParamsMatchPrefix BrowseRRsetsParamsMatch = "prefix"
+)
+
+// Valid indicates whether the value is a known member of the BrowseRRsetsParamsMatch enum.
+func (e BrowseRRsetsParamsMatch) Valid() bool {
+	switch e {
+	case BrowseRRsetsParamsMatchExact:
+		return true
+	case BrowseRRsetsParamsMatchPrefix:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListZoneBindingsParamsStatus.
 const (
 	ListZoneBindingsParamsStatusActive  ListZoneBindingsParamsStatus = "active"
@@ -397,6 +481,17 @@ type Autoprimary struct {
 
 	// Nameserver DNS name of the autoprimary server
 	Nameserver *string `json:"nameserver,omitempty"`
+}
+
+// BrowserSessionMetadata defines model for BrowserSessionMetadata.
+type BrowserSessionMetadata struct {
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
+// BrowserSignIn defines model for BrowserSignIn.
+type BrowserSignIn struct {
+	// Token Existing API token; never returned or retained in plaintext.
+	Token *string `json:"token,omitempty"`
 }
 
 // CacheFlushResult The result of a cache-flush
@@ -667,6 +762,18 @@ type RRSetChange struct {
 // RRSetChangeChangetype defines model for RRSetChange.Changetype.
 type RRSetChangeChangetype string
 
+// RRsetBrowsePage defines model for RRsetBrowsePage.
+type RRsetBrowsePage struct {
+	Error           nullable.Nullable[NullableString]    `json:"error"`
+	Items           []RRSet                              `json:"items"`
+	LastRefreshedAt nullable.Nullable[NullableTimestamp] `json:"last_refreshed_at"`
+	NextCursor      nullable.Nullable[NullableString]    `json:"next_cursor"`
+	State           RRsetBrowsePageState                 `json:"state"`
+}
+
+// RRsetBrowsePageState defines model for RRsetBrowsePage.State.
+type RRsetBrowsePageState string
+
 // Record The RREntry object represents a single record.
 type Record struct {
 	// Content The content of this record
@@ -757,6 +864,33 @@ type Selector struct {
 
 // SelectorKind defines model for Selector.Kind.
 type SelectorKind string
+
+// SelfDelegation defines model for SelfDelegation.
+type SelfDelegation struct {
+	ChangeKinds   []SelfDelegationChangeKinds          `json:"change_kinds"`
+	CreatedAt     time.Time                            `json:"created_at"`
+	GranteeId     ResourceID                           `json:"grantee_id"`
+	GranteeKind   SelfDelegationGranteeKind            `json:"grantee_kind"`
+	Id            ResourceID                           `json:"id"`
+	RecordTypes   []string                             `json:"record_types"`
+	RevokedAt     nullable.Nullable[NullableTimestamp] `json:"revoked_at"`
+	Selectors     []Selector                           `json:"selectors"`
+	ZoneBindingId ResourceID                           `json:"zone_binding_id"`
+	ZoneId        string                               `json:"zone_id"`
+	ZoneName      string                               `json:"zone_name"`
+}
+
+// SelfDelegationChangeKinds defines model for SelfDelegation.ChangeKinds.
+type SelfDelegationChangeKinds string
+
+// SelfDelegationGranteeKind defines model for SelfDelegation.GranteeKind.
+type SelfDelegationGranteeKind string
+
+// SelfDelegationPage defines model for SelfDelegationPage.
+type SelfDelegationPage struct {
+	Items      []SelfDelegation                  `json:"items"`
+	NextCursor nullable.Nullable[NullableString] `json:"next_cursor"`
+}
 
 // Server defines model for Server.
 type Server struct {
@@ -1099,6 +1233,17 @@ type ListCurrentIdentityTokensParams struct {
 	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
+// BrowseRRsetsParams defines parameters for BrowseRRsets.
+type BrowseRRsetsParams struct {
+	Name   *string                  `form:"name,omitempty" json:"name,omitempty"`
+	Match  *BrowseRRsetsParamsMatch `form:"match,omitempty" json:"match,omitempty"`
+	Type   *string                  `form:"type,omitempty" json:"type,omitempty"`
+	Cursor *string                  `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// BrowseRRsetsParamsMatch defines parameters for BrowseRRsets.
+type BrowseRRsetsParamsMatch string
+
 // ListZoneBindingsParams defines parameters for ListZoneBindings.
 type ListZoneBindingsParams struct {
 	Limit    *Limit                        `form:"limit,omitempty" json:"limit,omitempty"`
@@ -1207,6 +1352,9 @@ type CreateIdentityTokenJSONRequestBody = TokenCreate
 
 // CreateCurrentIdentityTokenJSONRequestBody defines body for CreateCurrentIdentityToken for application/json ContentType.
 type CreateCurrentIdentityTokenJSONRequestBody = TokenCreate
+
+// CreateBrowserSessionJSONRequestBody defines body for CreateBrowserSession for application/json ContentType.
+type CreateBrowserSessionJSONRequestBody = BrowserSignIn
 
 // CreateZoneBindingJSONRequestBody defines body for CreateZoneBinding for application/json ContentType.
 type CreateZoneBindingJSONRequestBody = ZoneBindingCreate
@@ -1712,6 +1860,31 @@ type ClientInterface interface {
 
 	// RevokeCurrentIdentityToken performs a DELETE /dans/me/tokens/{token_id} (the `RevokeCurrentIdentityToken` operationId) request.
 	RevokeCurrentIdentityToken(ctx context.Context, tokenId TokenID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// BrowseRRsets performs a GET /dans/servers/{server_id}/zones/{zone_id}/rrsets (the `BrowseRRsets` operationId) request.
+	BrowseRRsets(ctx context.Context, serverId string, zoneId string, params *BrowseRRsetsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RefreshRRsets performs a POST /dans/servers/{server_id}/zones/{zone_id}/rrsets/refresh (the `RefreshRRsets` operationId) request.
+	RefreshRRsets(ctx context.Context, serverId string, zoneId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteBrowserSession Clear this browser session without revoking its API token.
+	//
+	// Corresponds with DELETE /dans/session (the `DeleteBrowserSession` operationId).
+	DeleteBrowserSession(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateBrowserSessionWithBody Sign in with an existing API token.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /dans/session (the `CreateBrowserSession` operationId).
+	CreateBrowserSessionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateBrowserSession Sign in with an existing API token.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /dans/session (the `CreateBrowserSession` operationId).
+	CreateBrowserSession(ctx context.Context, body CreateBrowserSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListZoneBindings performs a GET /dans/zone-bindings (the `ListZoneBindings` operationId) request.
 	ListZoneBindings(ctx context.Context, params *ListZoneBindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2557,6 +2730,81 @@ func (c *Client) CreateCurrentIdentityToken(ctx context.Context, body CreateCurr
 // RevokeCurrentIdentityToken performs a DELETE /dans/me/tokens/{token_id} (the `RevokeCurrentIdentityToken` operationId) request.
 func (c *Client) RevokeCurrentIdentityToken(ctx context.Context, tokenId TokenID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRevokeCurrentIdentityTokenRequest(c.Server, tokenId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// BrowseRRsets performs a GET /dans/servers/{server_id}/zones/{zone_id}/rrsets (the `BrowseRRsets` operationId) request.
+func (c *Client) BrowseRRsets(ctx context.Context, serverId string, zoneId string, params *BrowseRRsetsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewBrowseRRsetsRequest(c.Server, serverId, zoneId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RefreshRRsets performs a POST /dans/servers/{server_id}/zones/{zone_id}/rrsets/refresh (the `RefreshRRsets` operationId) request.
+func (c *Client) RefreshRRsets(ctx context.Context, serverId string, zoneId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRefreshRRsetsRequest(c.Server, serverId, zoneId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteBrowserSession Clear this browser session without revoking its API token.
+//
+// Corresponds with DELETE /dans/session (the `DeleteBrowserSession` operationId).
+func (c *Client) DeleteBrowserSession(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteBrowserSessionRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateBrowserSessionWithBody Sign in with an existing API token.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /dans/session (the `CreateBrowserSession` operationId).
+func (c *Client) CreateBrowserSessionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateBrowserSessionRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateBrowserSession Sign in with an existing API token.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /dans/session (the `CreateBrowserSession` operationId).
+func (c *Client) CreateBrowserSession(ctx context.Context, body CreateBrowserSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateBrowserSessionRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -5055,6 +5303,218 @@ func NewRevokeCurrentIdentityTokenRequest(server string, tokenId TokenID) (*http
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewBrowseRRsetsRequest constructs an http.Request for the BrowseRRsets method
+func NewBrowseRRsetsRequest(server string, serverId string, zoneId string, params *BrowseRRsetsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "server_id", serverId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "zone_id", zoneId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/dans/servers/%s/zones/%s/rrsets", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Name != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "name", *params.Name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Match != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "match", *params.Match, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Type != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "type", *params.Type, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRefreshRRsetsRequest constructs an http.Request for the RefreshRRsets method
+func NewRefreshRRsetsRequest(server string, serverId string, zoneId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "server_id", serverId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "zone_id", zoneId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/dans/servers/%s/zones/%s/rrsets/refresh", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDeleteBrowserSessionRequest constructs an http.Request for the DeleteBrowserSession method
+func NewDeleteBrowserSessionRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/dans/session")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateBrowserSessionRequest calls the generic CreateBrowserSession builder with application/json body
+func NewCreateBrowserSessionRequest(server string, body CreateBrowserSessionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateBrowserSessionRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateBrowserSessionRequestWithBody constructs an http.Request for the CreateBrowserSession method, with any body, and a specified content type
+func NewCreateBrowserSessionRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/dans/session")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -7741,6 +8201,37 @@ type ClientWithResponsesInterface interface {
 	// Returns a wrapper object for the known response body format(s).
 	RevokeCurrentIdentityTokenWithResponse(ctx context.Context, tokenId TokenID, reqEditors ...RequestEditorFn) (*RevokeCurrentIdentityTokenResponse, error)
 
+	// BrowseRRsetsWithResponse performs a GET /dans/servers/{server_id}/zones/{zone_id}/rrsets (the `BrowseRRsets` operationId) request.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	BrowseRRsetsWithResponse(ctx context.Context, serverId string, zoneId string, params *BrowseRRsetsParams, reqEditors ...RequestEditorFn) (*BrowseRRsetsResponse, error)
+
+	// RefreshRRsetsWithResponse performs a POST /dans/servers/{server_id}/zones/{zone_id}/rrsets/refresh (the `RefreshRRsets` operationId) request.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	RefreshRRsetsWithResponse(ctx context.Context, serverId string, zoneId string, reqEditors ...RequestEditorFn) (*RefreshRRsetsResponse, error)
+
+	// DeleteBrowserSessionWithResponse Clear this browser session without revoking its API token.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /dans/session (the `DeleteBrowserSession` operationId).
+	DeleteBrowserSessionWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*DeleteBrowserSessionResponse, error)
+
+	// CreateBrowserSessionWithBodyWithResponse Sign in with an existing API token.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /dans/session (the `CreateBrowserSession` operationId).
+	CreateBrowserSessionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateBrowserSessionResponse, error)
+
+	// CreateBrowserSessionWithResponse Sign in with an existing API token.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /dans/session (the `CreateBrowserSession` operationId).
+	CreateBrowserSessionWithResponse(ctx context.Context, body CreateBrowserSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBrowserSessionResponse, error)
+
 	// ListZoneBindingsWithResponse performs a GET /dans/zone-bindings (the `ListZoneBindings` operationId) request.
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -9244,13 +9735,13 @@ type ListCurrentIdentityDelegationsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	// JSON200 the response for an HTTP 200 `application/json` response
-	JSON200 *DelegationPage
+	JSON200 *SelfDelegationPage
 	// JSONDefault the response for an HTTP default `application/json` response
 	JSONDefault *DansError
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
-func (r ListCurrentIdentityDelegationsResponse) GetJSON200() *DelegationPage {
+func (r ListCurrentIdentityDelegationsResponse) GetJSON200() *SelfDelegationPage {
 	return r.JSON200
 }
 
@@ -9474,6 +9965,212 @@ func (r RevokeCurrentIdentityTokenResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r RevokeCurrentIdentityTokenResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type BrowseRRsetsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *RRsetBrowsePage
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *RRsetBrowsePage
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *DansError
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r BrowseRRsetsResponse) GetJSON200() *RRsetBrowsePage {
+	return r.JSON200
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r BrowseRRsetsResponse) GetJSON202() *RRsetBrowsePage {
+	return r.JSON202
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r BrowseRRsetsResponse) GetJSONDefault() *DansError {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r BrowseRRsetsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r BrowseRRsetsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r BrowseRRsetsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r BrowseRRsetsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RefreshRRsetsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *RRsetBrowsePage
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *DansError
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r RefreshRRsetsResponse) GetJSON202() *RRsetBrowsePage {
+	return r.JSON202
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r RefreshRRsetsResponse) GetJSONDefault() *DansError {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r RefreshRRsetsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RefreshRRsetsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RefreshRRsetsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RefreshRRsetsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// DeleteBrowserSessionResponse204Headers the declared response headers of an HTTP 204 response for DeleteBrowserSession
+type DeleteBrowserSessionResponse204Headers struct {
+	SetCookie *string
+}
+
+type DeleteBrowserSessionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *DansError
+	// Headers204 the parsed response headers for an HTTP 204 response
+	Headers204 *DeleteBrowserSessionResponse204Headers
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r DeleteBrowserSessionResponse) GetJSONDefault() *DansError {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteBrowserSessionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteBrowserSessionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteBrowserSessionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteBrowserSessionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// CreateBrowserSessionResponse201Headers the declared response headers of an HTTP 201 response for CreateBrowserSession
+type CreateBrowserSessionResponse201Headers struct {
+	SetCookie *string
+}
+
+type CreateBrowserSessionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *BrowserSessionMetadata
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *DansError
+	// Headers201 the parsed response headers for an HTTP 201 response
+	Headers201 *CreateBrowserSessionResponse201Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateBrowserSessionResponse) GetJSON201() *BrowserSessionMetadata {
+	return r.JSON201
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r CreateBrowserSessionResponse) GetJSONDefault() *DansError {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateBrowserSessionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateBrowserSessionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateBrowserSessionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateBrowserSessionResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -12222,6 +12919,67 @@ func (c *ClientWithResponses) RevokeCurrentIdentityTokenWithResponse(ctx context
 	return ParseRevokeCurrentIdentityTokenResponse(rsp)
 }
 
+// BrowseRRsetsWithResponse performs a GET /dans/servers/{server_id}/zones/{zone_id}/rrsets (the `BrowseRRsets` operationId) request.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) BrowseRRsetsWithResponse(ctx context.Context, serverId string, zoneId string, params *BrowseRRsetsParams, reqEditors ...RequestEditorFn) (*BrowseRRsetsResponse, error) {
+	rsp, err := c.BrowseRRsets(ctx, serverId, zoneId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseBrowseRRsetsResponse(rsp)
+}
+
+// RefreshRRsetsWithResponse performs a POST /dans/servers/{server_id}/zones/{zone_id}/rrsets/refresh (the `RefreshRRsets` operationId) request.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) RefreshRRsetsWithResponse(ctx context.Context, serverId string, zoneId string, reqEditors ...RequestEditorFn) (*RefreshRRsetsResponse, error) {
+	rsp, err := c.RefreshRRsets(ctx, serverId, zoneId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRefreshRRsetsResponse(rsp)
+}
+
+// DeleteBrowserSessionWithResponse Clear this browser session without revoking its API token.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /dans/session (the `DeleteBrowserSession` operationId).
+func (c *ClientWithResponses) DeleteBrowserSessionWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*DeleteBrowserSessionResponse, error) {
+	rsp, err := c.DeleteBrowserSession(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteBrowserSessionResponse(rsp)
+}
+
+// CreateBrowserSessionWithBodyWithResponse Sign in with an existing API token.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /dans/session (the `CreateBrowserSession` operationId).
+func (c *ClientWithResponses) CreateBrowserSessionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateBrowserSessionResponse, error) {
+	rsp, err := c.CreateBrowserSessionWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateBrowserSessionResponse(rsp)
+}
+
+// CreateBrowserSessionWithResponse Sign in with an existing API token.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /dans/session (the `CreateBrowserSession` operationId).
+func (c *ClientWithResponses) CreateBrowserSessionWithResponse(ctx context.Context, body CreateBrowserSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBrowserSessionResponse, error) {
+	rsp, err := c.CreateBrowserSession(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateBrowserSessionResponse(rsp)
+}
+
 // ListZoneBindingsWithResponse performs a GET /dans/zone-bindings (the `ListZoneBindings` operationId) request.
 //
 // Returns a wrapper object for the known response body format(s).
@@ -13852,7 +14610,7 @@ func ParseListCurrentIdentityDelegationsResponse(rsp *http.Response) (*ListCurre
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest DelegationPage
+		var dest SelfDelegationPage
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -14006,6 +14764,167 @@ func ParseRevokeCurrentIdentityTokenResponse(rsp *http.Response) (*RevokeCurrent
 		}
 		response.JSONDefault = &dest
 
+	}
+
+	return response, nil
+}
+
+// ParseBrowseRRsetsResponse parses an HTTP response from a BrowseRRsetsWithResponse call
+func ParseBrowseRRsetsResponse(rsp *http.Response) (*BrowseRRsetsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &BrowseRRsetsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RRsetBrowsePage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest RRsetBrowsePage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest DansError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRefreshRRsetsResponse parses an HTTP response from a RefreshRRsetsWithResponse call
+func ParseRefreshRRsetsResponse(rsp *http.Response) (*RefreshRRsetsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RefreshRRsetsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest RRsetBrowsePage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest DansError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteBrowserSessionResponse parses an HTTP response from a DeleteBrowserSessionWithResponse call
+func ParseDeleteBrowserSessionResponse(rsp *http.Response) (*DeleteBrowserSessionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteBrowserSessionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest DansError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		var headers DeleteBrowserSessionResponse204Headers
+		if values := rsp.Header.Values("Set-Cookie"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Set-Cookie", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.SetCookie = &value
+		}
+		response.Headers204 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseCreateBrowserSessionResponse parses an HTTP response from a CreateBrowserSessionWithResponse call
+func ParseCreateBrowserSessionResponse(rsp *http.Response) (*CreateBrowserSessionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateBrowserSessionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest BrowserSessionMetadata
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest DansError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		var headers CreateBrowserSessionResponse201Headers
+		if values := rsp.Header.Values("Set-Cookie"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Set-Cookie", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.SetCookie = &value
+		}
+		response.Headers201 = &headers
 	}
 
 	return response, nil
@@ -15746,6 +16665,18 @@ type ServerInterface interface {
 	// (DELETE /dans/me/tokens/{token_id})
 	RevokeCurrentIdentityToken(w http.ResponseWriter, r *http.Request, tokenId TokenID)
 
+	// (GET /dans/servers/{server_id}/zones/{zone_id}/rrsets)
+	BrowseRRsets(w http.ResponseWriter, r *http.Request, serverId string, zoneId string, params BrowseRRsetsParams)
+
+	// (POST /dans/servers/{server_id}/zones/{zone_id}/rrsets/refresh)
+	RefreshRRsets(w http.ResponseWriter, r *http.Request, serverId string, zoneId string)
+	// DeleteBrowserSession Clear this browser session without revoking its API token.
+	// (DELETE /dans/session)
+	DeleteBrowserSession(w http.ResponseWriter, r *http.Request)
+	// CreateBrowserSession Sign in with an existing API token.
+	// (POST /dans/session)
+	CreateBrowserSession(w http.ResponseWriter, r *http.Request)
+
 	// (GET /dans/zone-bindings)
 	ListZoneBindings(w http.ResponseWriter, r *http.Request, params ListZoneBindingsParams)
 
@@ -16914,6 +17845,159 @@ func (siw *ServerInterfaceWrapper) RevokeCurrentIdentityToken(w http.ResponseWri
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RevokeCurrentIdentityToken(w, r, tokenId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// BrowseRRsets operation middleware
+func (siw *ServerInterfaceWrapper) BrowseRRsets(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "server_id" -------------
+	var serverId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "server_id", r.PathValue("server_id"), &serverId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "server_id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "zone_id" -------------
+	var zoneId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "zone_id", r.PathValue("zone_id"), &zoneId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "zone_id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params BrowseRRsetsParams
+
+	// ------------- Optional query parameter "name" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "name", r.URL.Query(), &params.Name, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "name"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "match" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "match", r.URL.Query(), &params.Match, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "match"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "match", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "type" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "type", r.URL.Query(), &params.Type, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "type"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "type", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.BrowseRRsets(w, r, serverId, zoneId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RefreshRRsets operation middleware
+func (siw *ServerInterfaceWrapper) RefreshRRsets(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "server_id" -------------
+	var serverId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "server_id", r.PathValue("server_id"), &serverId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "server_id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "zone_id" -------------
+	var zoneId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "zone_id", r.PathValue("zone_id"), &zoneId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "zone_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RefreshRRsets(w, r, serverId, zoneId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteBrowserSession operation middleware
+func (siw *ServerInterfaceWrapper) DeleteBrowserSession(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteBrowserSession(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateBrowserSession operation middleware
+func (siw *ServerInterfaceWrapper) CreateBrowserSession(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateBrowserSession(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -18936,6 +20020,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/dans/me/tokens", wrapper.ListCurrentIdentityTokens)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/dans/me/tokens", wrapper.CreateCurrentIdentityToken)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/dans/me/tokens/{token_id}", wrapper.RevokeCurrentIdentityToken)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/dans/servers/{server_id}/zones/{zone_id}/rrsets", wrapper.BrowseRRsets)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/dans/servers/{server_id}/zones/{zone_id}/rrsets/refresh", wrapper.RefreshRRsets)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/dans/session", wrapper.DeleteBrowserSession)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/dans/session", wrapper.CreateBrowserSession)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/dans/zone-bindings", wrapper.ListZoneBindings)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/dans/zone-bindings", wrapper.CreateZoneBinding)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/dans/zone-bindings/{zone_binding_id}", wrapper.GetZoneBinding)
@@ -19844,7 +20932,7 @@ type ListCurrentIdentityDelegationsResponseObject interface {
 	VisitListCurrentIdentityDelegationsResponse(w http.ResponseWriter) error
 }
 
-type ListCurrentIdentityDelegations200JSONResponse DelegationPage
+type ListCurrentIdentityDelegations200JSONResponse SelfDelegationPage
 
 func (response ListCurrentIdentityDelegations200JSONResponse) VisitListCurrentIdentityDelegationsResponse(w http.ResponseWriter) error {
 
@@ -20024,6 +21112,190 @@ type RevokeCurrentIdentityTokendefaultJSONResponse struct {
 }
 
 func (response RevokeCurrentIdentityTokendefaultJSONResponse) VisitRevokeCurrentIdentityTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BrowseRRsetsRequestObject struct {
+	ServerId string `json:"server_id"`
+	ZoneId   string `json:"zone_id"`
+	Params   BrowseRRsetsParams
+}
+
+type BrowseRRsetsResponseObject interface {
+	VisitBrowseRRsetsResponse(w http.ResponseWriter) error
+}
+
+type BrowseRRsets200JSONResponse RRsetBrowsePage
+
+func (response BrowseRRsets200JSONResponse) VisitBrowseRRsetsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BrowseRRsets202JSONResponse RRsetBrowsePage
+
+func (response BrowseRRsets202JSONResponse) VisitBrowseRRsetsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BrowseRRsetsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response BrowseRRsetsdefaultJSONResponse) VisitBrowseRRsetsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefreshRRsetsRequestObject struct {
+	ServerId string `json:"server_id"`
+	ZoneId   string `json:"zone_id"`
+}
+
+type RefreshRRsetsResponseObject interface {
+	VisitRefreshRRsetsResponse(w http.ResponseWriter) error
+}
+
+type RefreshRRsets202JSONResponse RRsetBrowsePage
+
+func (response RefreshRRsets202JSONResponse) VisitRefreshRRsetsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefreshRRsetsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response RefreshRRsetsdefaultJSONResponse) VisitRefreshRRsetsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteBrowserSessionRequestObject struct {
+}
+
+type DeleteBrowserSessionResponseObject interface {
+	VisitDeleteBrowserSessionResponse(w http.ResponseWriter) error
+}
+
+type DeleteBrowserSession204ResponseHeaders struct {
+	SetCookie *string
+}
+
+type DeleteBrowserSession204Response struct {
+	Headers DeleteBrowserSession204ResponseHeaders
+}
+
+func (response DeleteBrowserSession204Response) VisitDeleteBrowserSessionResponse(w http.ResponseWriter) error {
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteBrowserSessiondefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response DeleteBrowserSessiondefaultJSONResponse) VisitDeleteBrowserSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBrowserSessionRequestObject struct {
+	Body *CreateBrowserSessionJSONRequestBody
+}
+
+type CreateBrowserSessionResponseObject interface {
+	VisitCreateBrowserSessionResponse(w http.ResponseWriter) error
+}
+
+type CreateBrowserSession201ResponseHeaders struct {
+	SetCookie *string
+}
+
+type CreateBrowserSession201JSONResponse struct {
+	Body    BrowserSessionMetadata
+	Headers CreateBrowserSession201ResponseHeaders
+}
+
+func (response CreateBrowserSession201JSONResponse) VisitCreateBrowserSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBrowserSessiondefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response CreateBrowserSessiondefaultJSONResponse) VisitCreateBrowserSessionResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -22113,6 +23385,18 @@ type StrictServerInterface interface {
 	// (DELETE /dans/me/tokens/{token_id})
 	RevokeCurrentIdentityToken(ctx context.Context, request RevokeCurrentIdentityTokenRequestObject) (RevokeCurrentIdentityTokenResponseObject, error)
 
+	// (GET /dans/servers/{server_id}/zones/{zone_id}/rrsets)
+	BrowseRRsets(ctx context.Context, request BrowseRRsetsRequestObject) (BrowseRRsetsResponseObject, error)
+
+	// (POST /dans/servers/{server_id}/zones/{zone_id}/rrsets/refresh)
+	RefreshRRsets(ctx context.Context, request RefreshRRsetsRequestObject) (RefreshRRsetsResponseObject, error)
+	// DeleteBrowserSession Clear this browser session without revoking its API token.
+	// (DELETE /dans/session)
+	DeleteBrowserSession(ctx context.Context, request DeleteBrowserSessionRequestObject) (DeleteBrowserSessionResponseObject, error)
+	// CreateBrowserSession Sign in with an existing API token.
+	// (POST /dans/session)
+	CreateBrowserSession(ctx context.Context, request CreateBrowserSessionRequestObject) (CreateBrowserSessionResponseObject, error)
+
 	// (GET /dans/zone-bindings)
 	ListZoneBindings(ctx context.Context, request ListZoneBindingsRequestObject) (ListZoneBindingsResponseObject, error)
 
@@ -23020,6 +24304,116 @@ func (sh *strictHandler) RevokeCurrentIdentityToken(w http.ResponseWriter, r *ht
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(RevokeCurrentIdentityTokenResponseObject); ok {
 		if err := validResponse.VisitRevokeCurrentIdentityTokenResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// BrowseRRsets operation middleware
+func (sh *strictHandler) BrowseRRsets(w http.ResponseWriter, r *http.Request, serverId string, zoneId string, params BrowseRRsetsParams) {
+	var request BrowseRRsetsRequestObject
+
+	request.ServerId = serverId
+	request.ZoneId = zoneId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.BrowseRRsets(ctx, request.(BrowseRRsetsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "BrowseRRsets")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(BrowseRRsetsResponseObject); ok {
+		if err := validResponse.VisitBrowseRRsetsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RefreshRRsets operation middleware
+func (sh *strictHandler) RefreshRRsets(w http.ResponseWriter, r *http.Request, serverId string, zoneId string) {
+	var request RefreshRRsetsRequestObject
+
+	request.ServerId = serverId
+	request.ZoneId = zoneId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RefreshRRsets(ctx, request.(RefreshRRsetsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RefreshRRsets")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RefreshRRsetsResponseObject); ok {
+		if err := validResponse.VisitRefreshRRsetsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteBrowserSession operation middleware
+func (sh *strictHandler) DeleteBrowserSession(w http.ResponseWriter, r *http.Request) {
+	var request DeleteBrowserSessionRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteBrowserSession(ctx, request.(DeleteBrowserSessionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteBrowserSession")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteBrowserSessionResponseObject); ok {
+		if err := validResponse.VisitDeleteBrowserSessionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateBrowserSession operation middleware
+func (sh *strictHandler) CreateBrowserSession(w http.ResponseWriter, r *http.Request) {
+	var request CreateBrowserSessionRequestObject
+
+	var body CreateBrowserSessionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateBrowserSession(ctx, request.(CreateBrowserSessionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateBrowserSession")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateBrowserSessionResponseObject); ok {
+		if err := validResponse.VisitCreateBrowserSessionResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -24516,173 +25910,184 @@ func (sh *strictHandler) RectifyZone(w http.ResponseWriter, r *http.Request, ser
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

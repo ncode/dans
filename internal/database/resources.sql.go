@@ -35,11 +35,20 @@ const authenticateToken = `-- name: AuthenticateToken :one
 SELECT t.id AS token_id, i.id AS identity_id, i.kind, i.handle, i.is_operator
 FROM api_tokens AS t
 JOIN identities AS i ON i.id = t.identity_id
-WHERE t.digest = $1
+WHERE t.id IN (
+    SELECT header_token.id FROM api_tokens AS header_token WHERE header_token.digest = $1 AND NOT $2::boolean
+    UNION ALL
+    SELECT session.token_id FROM browser_sessions AS session WHERE session.digest = $1 AND $2::boolean AND session.expires_at > statement_timestamp()
+  )
   AND t.revoked_at IS NULL
   AND (t.expires_at IS NULL OR t.expires_at > statement_timestamp())
   AND i.enabled = true
 `
+
+type AuthenticateTokenParams struct {
+	CredentialDigest []byte `db:"credential_digest"`
+	IsSession        bool   `db:"is_session"`
+}
 
 type AuthenticateTokenRow struct {
 	TokenID    string `db:"token_id"`
@@ -49,8 +58,8 @@ type AuthenticateTokenRow struct {
 	IsOperator bool   `db:"is_operator"`
 }
 
-func (q *Queries) AuthenticateToken(ctx context.Context, digest []byte) (AuthenticateTokenRow, error) {
-	row := q.db.QueryRow(ctx, authenticateToken, digest)
+func (q *Queries) AuthenticateToken(ctx context.Context, arg AuthenticateTokenParams) (AuthenticateTokenRow, error) {
+	row := q.db.QueryRow(ctx, authenticateToken, arg.CredentialDigest, arg.IsSession)
 	var i AuthenticateTokenRow
 	err := row.Scan(
 		&i.TokenID,
@@ -67,7 +76,11 @@ WITH authenticated AS (
     SELECT t.id AS token_id, i.id AS identity_id, i.kind, i.handle, i.is_operator
     FROM api_tokens AS t
     JOIN identities AS i ON i.id = t.identity_id
-    WHERE t.digest = $1
+    WHERE t.id IN (
+        SELECT header_token.id FROM api_tokens AS header_token WHERE header_token.digest = $1 AND NOT $2::boolean
+        UNION ALL
+        SELECT session.token_id FROM browser_sessions AS session WHERE session.digest = $1 AND $2::boolean AND session.expires_at > statement_timestamp()
+      )
       AND t.revoked_at IS NULL
       AND (t.expires_at IS NULL OR t.expires_at > statement_timestamp())
       AND i.enabled = true
@@ -78,13 +91,13 @@ input_tuples AS (
            item.value ->> 'record_type' AS record_type,
            item.value ->> 'change_kind' AS change_kind,
            (item.value ->> 'literal_wildcard')::boolean AS literal_wildcard
-    FROM jsonb_array_elements($2::jsonb) WITH ORDINALITY AS item(value, ordinality)
+    FROM jsonb_array_elements($3::jsonb) WITH ORDINALITY AS item(value, ordinality)
 ),
 active_binding AS (
     SELECT id, zone_name
     FROM zone_bindings
-    WHERE upstream = $3
-      AND powerdns_zone_id = $4
+    WHERE upstream = $4
+      AND powerdns_zone_id = $5
       AND retired_at IS NULL
 )
 SELECT COALESCE(a.token_id::text, '')::text AS token_id,
@@ -168,10 +181,11 @@ ORDER BY t.batch_index
 `
 
 type AuthorizeRRsetBatchParams struct {
-	TokenDigest    []byte `db:"token_digest"`
-	Tuples         []byte `db:"tuples"`
-	Upstream       string `db:"upstream"`
-	PowerDNSZoneID string `db:"powerdns_zone_id"`
+	CredentialDigest []byte `db:"credential_digest"`
+	IsSession        bool   `db:"is_session"`
+	Tuples           []byte `db:"tuples"`
+	Upstream         string `db:"upstream"`
+	PowerDNSZoneID   string `db:"powerdns_zone_id"`
 }
 
 type AuthorizeRRsetBatchRow struct {
@@ -191,7 +205,8 @@ type AuthorizeRRsetBatchRow struct {
 
 func (q *Queries) AuthorizeRRsetBatch(ctx context.Context, arg AuthorizeRRsetBatchParams) ([]AuthorizeRRsetBatchRow, error) {
 	rows, err := q.db.Query(ctx, authorizeRRsetBatch,
-		arg.TokenDigest,
+		arg.CredentialDigest,
+		arg.IsSession,
 		arg.Tuples,
 		arg.Upstream,
 		arg.PowerDNSZoneID,
@@ -1873,7 +1888,7 @@ func (q *Queries) ListDelegationSelectorsByIDs(ctx context.Context, delegationId
 }
 
 const listEffectiveDelegationDetails = `-- name: ListEffectiveDelegationDetails :many
-SELECT d.id, d.zone_binding_id,
+SELECT d.id, d.zone_binding_id, binding.powerdns_zone_id, binding.zone_name,
        CASE WHEN d.grantee_identity_id IS NOT NULL THEN 'identity' ELSE 'group' END::text AS grantee_kind,
        COALESCE(d.grantee_identity_id, d.grantee_group_id)::text AS grantee_id,
        d.created_at, d.revoked_at
@@ -1913,12 +1928,14 @@ type ListEffectiveDelegationDetailsParams struct {
 }
 
 type ListEffectiveDelegationDetailsRow struct {
-	ID            string             `db:"id"`
-	ZoneBindingID string             `db:"zone_binding_id"`
-	GranteeKind   string             `db:"grantee_kind"`
-	GranteeID     string             `db:"grantee_id"`
-	CreatedAt     pgtype.Timestamptz `db:"created_at"`
-	RevokedAt     pgtype.Timestamptz `db:"revoked_at"`
+	ID             string             `db:"id"`
+	ZoneBindingID  string             `db:"zone_binding_id"`
+	PowerDNSZoneID string             `db:"powerdns_zone_id"`
+	ZoneName       string             `db:"zone_name"`
+	GranteeKind    string             `db:"grantee_kind"`
+	GranteeID      string             `db:"grantee_id"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at"`
+	RevokedAt      pgtype.Timestamptz `db:"revoked_at"`
 }
 
 func (q *Queries) ListEffectiveDelegationDetails(ctx context.Context, arg ListEffectiveDelegationDetailsParams) ([]ListEffectiveDelegationDetailsRow, error) {
@@ -1938,6 +1955,8 @@ func (q *Queries) ListEffectiveDelegationDetails(ctx context.Context, arg ListEf
 		if err := rows.Scan(
 			&i.ID,
 			&i.ZoneBindingID,
+			&i.PowerDNSZoneID,
+			&i.ZoneName,
 			&i.GranteeKind,
 			&i.GranteeID,
 			&i.CreatedAt,
