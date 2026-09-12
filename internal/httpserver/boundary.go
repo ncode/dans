@@ -47,7 +47,11 @@ func NewBoundary(config BoundaryConfig) (Middleware, error) {
 				return
 			}
 			w.Header().Set("X-Request-ID", requestID)
-			ctx, cancel := context.WithTimeout(WithRequestID(request.Context(), requestID), config.RequestTimeout)
+			parent := WithRequestID(request.Context(), requestID)
+			if isAuditExport(request) {
+				parent = context.WithValue(parent, exportParentKey, parent)
+			}
+			ctx, cancel := context.WithTimeout(parent, config.RequestTimeout)
 			defer cancel()
 			request = request.WithContext(ctx)
 			request.Body = http.MaxBytesReader(w, request.Body, config.MaxBodyBytes)
@@ -60,7 +64,10 @@ func NewBoundary(config BoundaryConfig) (Middleware, error) {
 				return
 			}
 			defer func() {
-				if recover() != nil {
+				if recovered := recover(); recovered != nil {
+					if recovered == http.ErrAbortHandler {
+						panic(recovered)
+					}
 					httpapi.WriteError(w, requestID, httpapi.NewError(httpapi.KindInternal, errors.New("HTTP handler panic")))
 				}
 			}()

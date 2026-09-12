@@ -33,6 +33,7 @@ WHERE (sqlc.narg('kind')::text IS NULL OR kind = sqlc.narg('kind'))
   AND (sqlc.narg('enabled')::boolean IS NULL OR enabled = sqlc.narg('enabled'))
   AND (sqlc.narg('is_operator')::boolean IS NULL OR is_operator = sqlc.narg('is_operator'))
   AND (sqlc.narg('handle')::text IS NULL OR handle = sqlc.narg('handle'))
+  AND (sqlc.narg('handle_prefix')::text IS NULL OR starts_with(handle, sqlc.narg('handle_prefix')))
   AND (
       sqlc.narg('after_created_at')::timestamptz IS NULL
       OR (created_at, id) < (
@@ -229,6 +230,7 @@ SELECT id, handle, display_name, enabled, created_at, updated_at
 FROM groups
 WHERE (sqlc.narg('enabled')::boolean IS NULL OR enabled = sqlc.narg('enabled'))
   AND (sqlc.narg('handle')::text IS NULL OR handle = sqlc.narg('handle'))
+  AND (sqlc.narg('handle_prefix')::text IS NULL OR starts_with(handle, sqlc.narg('handle_prefix')))
   AND (
       sqlc.narg('after_created_at')::timestamptz IS NULL
       OR (created_at, id) < (
@@ -273,6 +275,7 @@ SELECT i.id, i.kind, i.handle, i.display_name, i.enabled, i.is_operator,
 FROM group_memberships AS m
 JOIN identities AS i ON i.id = m.identity_id
 WHERE m.group_id = sqlc.arg('group_id')
+  AND (sqlc.narg('handle_prefix')::text IS NULL OR starts_with(i.handle, sqlc.narg('handle_prefix')))
   AND (
       sqlc.narg('after_created_at')::timestamptz IS NULL
       OR (i.created_at, i.id) < (
@@ -288,6 +291,7 @@ SELECT g.id, g.handle, g.display_name, g.enabled, g.created_at, g.updated_at
 FROM group_memberships AS m
 JOIN groups AS g ON g.id = m.group_id
 WHERE m.identity_id = sqlc.arg('identity_id')
+  AND (sqlc.narg('handle_prefix')::text IS NULL OR starts_with(g.handle, sqlc.narg('handle_prefix')))
   AND (
       sqlc.narg('after_created_at')::timestamptz IS NULL
       OR (g.created_at, g.id) < (
@@ -468,6 +472,11 @@ RETURNING id, generation, upstream, powerdns_zone_id, zone_name,
 
 -- name: GetZoneDeletionReconciliationState :one
 SELECT
+    COALESCE((SELECT outcome.result FROM audit_events AS intent
+      JOIN audit_events AS outcome ON outcome.intent_event_id=intent.id AND outcome.event_kind='dns_outcome'
+      WHERE intent.event_kind='dns_intent' AND intent.action='powerdns.zone.delete'
+        AND intent.target_kind='zone_binding' AND intent.target_id=sqlc.arg('binding_id')
+      ORDER BY outcome.occurred_at DESC, outcome.id DESC LIMIT 1), '')::text AS latest_result,
     EXISTS (
         SELECT 1
         FROM audit_events AS intent
@@ -596,6 +605,7 @@ JOIN zone_bindings AS binding
   ON binding.id = d.zone_binding_id
  AND binding.retired_at IS NULL
 WHERE d.revoked_at IS NULL
+  AND EXISTS (SELECT 1 FROM identities WHERE id = NULLIF(sqlc.arg('identity_id')::text, '')::uuid AND enabled)
   AND (
       d.grantee_identity_id = NULLIF(sqlc.arg('identity_id')::text, '')::uuid
       OR EXISTS (
@@ -766,3 +776,22 @@ SELECT id, occurred_at, event_kind, operation_id, intent_event_id,
        response_class, response_code, request_digest, response_digest, deadline_at
 FROM audit_events
 WHERE id = $1;
+
+-- name: ListIdentityAssignmentDetails :many
+SELECT d.id, d.zone_binding_id, binding.powerdns_zone_id, binding.zone_name,
+       CASE WHEN d.grantee_identity_id IS NOT NULL THEN 'identity' ELSE 'group' END::text AS grantee_kind,
+       COALESCE(d.grantee_identity_id, d.grantee_group_id)::text AS grantee_id,
+       d.created_at, d.revoked_at, target.enabled AS identity_enabled,
+       g.enabled AS group_enabled, g.handle AS group_handle,
+       CASE WHEN binding.retired_at IS NULL THEN 'active' ELSE 'retired' END::text AS binding_status,
+       (target.enabled AND (g.id IS NULL OR g.enabled) AND d.revoked_at IS NULL AND binding.retired_at IS NULL)::boolean AS effective
+FROM delegations AS d
+JOIN zone_bindings AS binding ON binding.id = d.zone_binding_id
+JOIN identities AS target ON target.id = sqlc.arg('identity_id')
+LEFT JOIN groups AS g ON g.id = d.grantee_group_id
+WHERE (d.grantee_identity_id = target.id OR EXISTS (
+    SELECT 1 FROM group_memberships AS m WHERE m.identity_id = target.id AND m.group_id = d.grantee_group_id
+))
+AND (sqlc.narg('after_created_at')::timestamptz IS NULL OR (d.created_at, d.id) < (sqlc.narg('after_created_at'), NULLIF(sqlc.arg('after_id')::text, '')::uuid))
+ORDER BY d.created_at DESC, d.id DESC
+LIMIT sqlc.arg('row_limit');
