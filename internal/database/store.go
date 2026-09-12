@@ -49,13 +49,14 @@ type Actor struct {
 	RequestID  string
 }
 
-// Authenticate resolves one syntactically valid opaque token in one statement.
+// Authenticate resolves current API-token or browser-session state in one statement.
 func (s *Store) Authenticate(ctx context.Context, token string) (Actor, error) {
-	if err := identifier.ValidateToken(token); err != nil {
+	isSession := ValidBrowserSession(token)
+	if !isSession && identifier.ValidateToken(token) != nil {
 		return Actor{}, ErrUnauthenticated
 	}
 	digest := identifier.DigestToken(token)
-	row, err := s.queries.AuthenticateToken(ctx, digest[:])
+	row, err := s.queries.AuthenticateToken(ctx, AuthenticateTokenParams{CredentialDigest: digest[:], IsSession: isSession})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Actor{}, ErrUnauthenticated
 	}

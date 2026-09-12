@@ -44,7 +44,11 @@ func NewDANSOperations(config GeneratedConfig) (DANSOperations, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewGeneratedServer(iam), nil
+	browse, err := NewBrowseHandler(config.Store, config.UpstreamID, iam)
+	if err != nil {
+		return nil, err
+	}
+	return NewGeneratedServer(browse), nil
 }
 
 // strictRoot is unreachable for compatibility operations because

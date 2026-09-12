@@ -79,3 +79,8 @@ GRANT UPDATE (revoked_at, revoked_by_identity_id)
     ON TABLE :"schema_name".delegations TO :"runtime_role";
 
 GRANT DELETE ON TABLE :"schema_name".group_memberships TO :"runtime_role";
+
+-- Browser sessions and rebuildable browsing state are owned by this runtime.
+REVOKE ALL PRIVILEGES ON TABLE :"schema_name".browser_sessions, :"schema_name".browse_zones, :"schema_name".browse_rrsets, :"schema_name".browse_changes FROM PUBLIC, :"runtime_role";
+GRANT SELECT, INSERT, DELETE ON TABLE :"schema_name".browser_sessions TO :"runtime_role";
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE :"schema_name".browse_zones, :"schema_name".browse_rrsets, :"schema_name".browse_changes TO :"runtime_role";

@@ -19,6 +19,7 @@ type ApplicationConfig struct {
 	Boundary          BoundaryConfig
 	Logger            *slog.Logger
 	Authenticator     Authenticator
+	BrowserSessions   *BrowserSessions
 	Schema            Probe
 	PowerDNSReady     func() bool
 	Health            *Health
@@ -54,7 +55,7 @@ func NewApplicationHandler(config ApplicationConfig) (http.Handler, error) {
 	}
 
 	proxy := &PowerDNSProxy{
-		DANSOperations: config.DANS, Upstream: config.Upstream,
+		DANSOperations: config.DANS, Upstream: config.Upstream, BrowserSessions: config.BrowserSessions,
 		Mutations: config.Mutations, Lifecycle: config.Lifecycle, AuditFailures: config.AuditFailures, LifecycleFailures: config.LifecycleFailures,
 		UpstreamID: config.UpstreamID, MutationTimeout: config.MutationTimeout,
 	}
@@ -74,7 +75,7 @@ func NewApplicationHandler(config ApplicationConfig) (http.Handler, error) {
 		boundary,
 		AccessLog(config.Logger),
 		validation,
-		Authentication(config.Authenticator),
+		config.BrowserSessions.Authentication(config.Authenticator),
 		Compatibility(CompatibilityConfig{Schema: config.Schema, PowerDNSCompatible: config.PowerDNSReady}),
 		Authorization(config.Denials, config.AuditFailures),
 	), nil

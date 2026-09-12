@@ -29,6 +29,8 @@ type DelegationCreate struct {
 }
 
 type DelegationDetails struct {
+	ZoneID        string
+	ZoneName      string
 	ID            string
 	ZoneBindingID string
 	GranteeKind   string
@@ -247,7 +249,7 @@ func (s *Store) ListCurrentIdentityDelegations(ctx context.Context, actor Actor,
 	items := make([]DelegationDetails, len(rows))
 	for i, row := range rows {
 		items[i] = DelegationDetails{
-			ID: row.ID, ZoneBindingID: row.ZoneBindingID, GranteeKind: row.GranteeKind,
+			ID: row.ID, ZoneBindingID: row.ZoneBindingID, GranteeKind: row.GranteeKind, ZoneID: row.PowerDNSZoneID, ZoneName: row.ZoneName,
 			GranteeID: row.GranteeID, CreatedAt: row.CreatedAt, RevokedAt: row.RevokedAt,
 		}
 	}

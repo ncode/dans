@@ -12,7 +12,7 @@ _Avoid_: Principal, account
 An administrative DNS namespace containing RRsets. A zone may be shared by multiple grantees.
 
 **RRset**:
-All DNS records with the same owner name and record type in one zone.
+All DNS records with the same owner name and record type in one zone. An RRset may contain multiple record values and is the unit of delegated authority.
 _Avoid_: Record, when referring to the whole set
 
 **Owner name**:

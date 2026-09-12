@@ -183,3 +183,17 @@ func mustJSON(t *testing.T, value any) []byte {
 	}
 	return data
 }
+
+func TestRedactTextRemovesBrowserSessionsAndKeepsIncompletePrefixesSafe(t *testing.T) {
+	t.Parallel()
+	const secret = "session_v1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+	if got := RedactText("session=" + secret); got != "session="+Redacted {
+		t.Errorf("browser secret was not redacted")
+	}
+	for _, prefix := range []string{"dans_v1_", "session_v1_"} {
+		input := strings.Repeat("x", 80) + prefix
+		if got := RedactText(input); got != input {
+			t.Errorf("incomplete credential changed")
+		}
+	}
+}

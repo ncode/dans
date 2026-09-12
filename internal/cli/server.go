@@ -19,6 +19,7 @@ const maxServeDuration = 24 * time.Hour
 // the production server after Viper and every secret source have been read.
 type ServeConfig struct {
 	Address                       string
+	DevelopmentHTTP               bool
 	DatabaseURL                   httpapi.Secret
 	DatabaseMaxConnections        int32
 	DatabaseAuthenticationReserve int32
@@ -96,6 +97,13 @@ func (config Config) serveLimits() (ServeConfig, error) {
 	var result ServeConfig
 	var err error
 	result.Address = config.Listen
+	switch config.BrowserCookieMode {
+	case "secure":
+	case "development-http":
+		result.DevelopmentHTTP = true
+	default:
+		return ServeConfig{}, errors.New("validate config: browser_cookie_mode must be secure or development-http")
+	}
 	result.PowerDNSURL = config.PowerDNSURL
 	result.PowerDNSUnixSocket = config.PowerDNSUnixSocket
 	result.PowerDNSUpstream = config.PowerDNSUpstream

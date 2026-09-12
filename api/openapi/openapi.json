@@ -303,6 +303,33 @@
         "title": "Autoprimary server",
         "type": "object"
       },
+      "BrowserSessionMetadata": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expires_at"
+        ],
+        "type": "object"
+      },
+      "BrowserSignIn": {
+        "additionalProperties": false,
+        "properties": {
+          "token": {
+            "description": "Existing API token; never returned or retained in plaintext.",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "type": "object"
+      },
       "CacheFlushResult": {
         "additionalProperties": false,
         "description": "The result of a cache-flush",
@@ -954,6 +981,44 @@
         ],
         "type": "object"
       },
+      "RRsetBrowsePage": {
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/NullableString"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RRSet"
+            },
+            "maxItems": 100,
+            "type": "array"
+          },
+          "last_refreshed_at": {
+            "$ref": "#/components/schemas/NullableTimestamp"
+          },
+          "next_cursor": {
+            "$ref": "#/components/schemas/NullableString"
+          },
+          "state": {
+            "enum": [
+              "indexing",
+              "ready",
+              "refreshing",
+              "stale"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "state",
+          "last_refreshed_at",
+          "error"
+        ],
+        "type": "object"
+      },
       "Record": {
         "additionalProperties": false,
         "description": "The RREntry object represents a single record.",
@@ -1134,6 +1199,100 @@
         "required": [
           "kind",
           "value"
+        ],
+        "type": "object"
+      },
+      "SelfDelegation": {
+        "additionalProperties": false,
+        "properties": {
+          "change_kinds": {
+            "items": {
+              "enum": [
+                "REPLACE",
+                "DELETE",
+                "EXTEND",
+                "PRUNE"
+              ],
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "grantee_id": {
+            "$ref": "#/components/schemas/ResourceID"
+          },
+          "grantee_kind": {
+            "enum": [
+              "identity",
+              "group"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "$ref": "#/components/schemas/ResourceID"
+          },
+          "record_types": {
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "revoked_at": {
+            "$ref": "#/components/schemas/NullableTimestamp"
+          },
+          "selectors": {
+            "items": {
+              "$ref": "#/components/schemas/Selector"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "zone_binding_id": {
+            "$ref": "#/components/schemas/ResourceID"
+          },
+          "zone_id": {
+            "type": "string"
+          },
+          "zone_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "zone_id",
+          "zone_name",
+          "id",
+          "zone_binding_id",
+          "grantee_kind",
+          "grantee_id",
+          "selectors",
+          "record_types",
+          "change_kinds",
+          "created_at",
+          "revoked_at"
+        ],
+        "type": "object"
+      },
+      "SelfDelegationPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SelfDelegation"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "$ref": "#/components/schemas/NullableString"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
         ],
         "type": "object"
       },
@@ -1661,6 +1820,12 @@
         "description": "A DANS opaque API token. The PowerDNS upstream key is never accepted from clients.",
         "in": "header",
         "name": "X-API-Key",
+        "type": "apiKey"
+      },
+      "BrowserSession": {
+        "description": "Opaque browser session, current token and identity checks apply.",
+        "in": "cookie",
+        "name": "__Host-dans_session",
         "type": "apiKey"
       }
     }
@@ -2428,7 +2593,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DelegationPage"
+                  "$ref": "#/components/schemas/SelfDelegationPage"
                 }
               }
             },
@@ -2566,6 +2731,200 @@
           "$ref": "#/components/parameters/TokenID"
         }
       ]
+    },
+    "/dans/servers/{server_id}/zones/{zone_id}/rrsets": {
+      "get": {
+        "operationId": "browseRRsets",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "server_id",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "zone_id",
+            "required": true,
+            "schema": {
+              "maxLength": 1024,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "name",
+            "schema": {
+              "maxLength": 1024,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "match",
+            "schema": {
+              "enum": [
+                "exact",
+                "prefix"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "type",
+            "schema": {
+              "maxLength": 32,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "maxLength": 4096,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RRsetBrowsePage"
+                }
+              }
+            },
+            "description": "Complete RRsets from a published browsing generation."
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RRsetBrowsePage"
+                }
+              }
+            },
+            "description": "Initial indexing is in progress."
+          },
+          "default": {
+            "$ref": "#/components/responses/DansError"
+          }
+        },
+        "x-dans-access-class": "authenticated-read"
+      }
+    },
+    "/dans/servers/{server_id}/zones/{zone_id}/rrsets/refresh": {
+      "post": {
+        "operationId": "refreshRRsets",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "server_id",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "zone_id",
+            "required": true,
+            "schema": {
+              "maxLength": 1024,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RRsetBrowsePage"
+                }
+              }
+            },
+            "description": "Read refresh requested; no DNS mutation is performed."
+          },
+          "default": {
+            "$ref": "#/components/responses/DansError"
+          }
+        },
+        "x-dans-access-class": "authenticated-read"
+      }
+    },
+    "/dans/session": {
+      "delete": {
+        "operationId": "deleteBrowserSession",
+        "responses": {
+          "204": {
+            "description": "Browser session cleared, including an unusable cookie.",
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/DansError"
+          }
+        },
+        "security": [],
+        "summary": "Clear this browser session without revoking its API token.",
+        "tags": [
+          "dans-session"
+        ],
+        "x-dans-access-class": "anonymous"
+      },
+      "post": {
+        "operationId": "createBrowserSession",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BrowserSignIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserSessionMetadata"
+                }
+              }
+            },
+            "description": "A secure host-only browser cookie was set.",
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/DansError"
+          }
+        },
+        "security": [],
+        "summary": "Sign in with an existing API token.",
+        "tags": [
+          "dans-session"
+        ],
+        "x-dans-access-class": "anonymous"
+      }
     },
     "/dans/zone-bindings": {
       "get": {
@@ -4359,6 +4718,12 @@
   "security": [
     {
       "APIKeyHeader": []
+    },
+    {
+      "APIKeyHeader": []
+    },
+    {
+      "BrowserSession": []
     }
   ],
   "servers": [

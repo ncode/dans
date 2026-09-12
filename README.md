@@ -15,7 +15,7 @@ make up
 make smoke
 ```
 
-`make up` initializes the installation and stores the local DANS operator token at `.dans/dev/operator-token`. `make smoke` creates an isolated fixture, performs an allowed delegated RRset write, confirms an out-of-scope write is denied, queries authoritative DNS, and verifies the audit outcome.
+`make up` initializes the installation, stores the local DANS operator token at `.dans/dev/operator-token`, and prints the console URL and sign-in token after startup succeeds. `make smoke` creates an isolated fixture, performs an allowed delegated RRset write, confirms an out-of-scope write is denied, queries authoritative DNS, and verifies the audit outcome.
 
 Run stack lifecycle through Make. Its targets wrap Compose and keep container, volume, image, and credential state bound to this checkout, even if the checkout moves.
 
@@ -34,6 +34,12 @@ Use `make status` to inspect the stack, `make logs` to follow logs, and `make do
 make reset CONFIRM=1
 ```
 
+## Browser console
+
+Open the console URL printed by `make up` and sign in with its operator token. Both `http://localhost:8080/console/` and `http://127.0.0.1:8080/console/` work locally; adjust the port if overridden. The local Compose stack explicitly enables `development-http` cookies so Safari can sign in over HTTP. These cookies remain HttpOnly and SameSite=Strict, with the same seven-day maximum and current token checks. The default `secure` mode uses a separate Secure cookie and HTTPS ingress for production.
+
+The console provides zones, complete RRset editing, server-side paginated browsing, operator delegations, and audit history. Identity and group administration remain in the CLI. Large zones index on first access; the table shows progress and freshness. See the [console guide](docs/frontend.md) and [API/session contract](docs/api.md).
+
 ## How it works
 
 ```mermaid
@@ -49,16 +55,18 @@ Management requests pass through DANS, which evaluates PostgreSQL-backed policy 
 
 ## Contributing
 
-A Go toolchain is needed only for native development. The common checks are:
+Native development uses the Go version in `go.mod`. Building the embedded React/TypeScript console additionally uses Node.js 24 and npm. The common checks are:
 
 ```sh
+make frontend
+make frontend-test
 make test
 make generate-check
 make integration
 make dev-contract
 ```
 
-Run `make help` for the authoritative list and description of supported commands.
+Run `make help` for the authoritative list and description of supported commands. `make generate` uses the pinned Go 1.26.5 toolchain so the compressed API artifact matches CI and release builds. `make frontend` installs the pinned lockfile and rebuilds checked-in embedded assets; rebuild them after changing `web/`. For frontend iteration, `npm --prefix web run dev` serves the console and proxies `/api` to the local DANS service. Install the test browser once with `cd web && npx playwright install chromium`. Production requires only the DANS executable, not Node.js.
 
 ## Production boundary
 

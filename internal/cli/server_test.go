@@ -174,6 +174,30 @@ type fakeServer struct {
 	run    func(ServeConfig) error
 }
 
+func TestServeBrowserCookieModeRequiresExplicitDevelopmentSetting(t *testing.T) {
+	t.Setenv("DANS_DATABASE_URL", "postgres://dans@database/dans")
+	t.Setenv("DANS_POWERDNS_API_KEY", "powerdns-secret")
+	for _, tc := range []struct {
+		mode        string
+		flags       []string
+		development bool
+		code        int
+	}{
+		{code: 0},
+		{mode: "development-http", development: true},
+		{mode: "development-http", flags: []string{"--browser-cookie-mode", "secure"}},
+		{mode: "invalid", code: 2},
+	} {
+		t.Setenv("DANS_BROWSER_COOKIE_MODE", tc.mode)
+		server := &fakeServer{}
+		args := append([]string{"--powerdns-url", "http://127.0.0.1:8081"}, tc.flags...)
+		code := Execute(t.Context(), append(args, "serve"), Options{Server: server})
+		if code != tc.code || server.config.DevelopmentHTTP != tc.development || (tc.code != 0 && server.calls != 0) {
+			t.Errorf("cookie mode %q: exit=%d development=%v calls=%d", tc.mode, code, server.config.DevelopmentHTTP, server.calls)
+		}
+	}
+}
+
 func (server *fakeServer) Serve(_ context.Context, config ServeConfig) error {
 	server.calls++
 	server.config = config

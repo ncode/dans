@@ -1,0 +1,80 @@
+{
+  "status": "passed",
+  "toolchains": {
+    "go": "1.26.5",
+    "node": "24.21.0"
+  },
+  "budgets": {
+    "binary_bytes": 25165824,
+    "oci_rootfs_bytes": 27262976,
+    "ready_idle_rss_kib": 65536,
+    "startup_deadline_seconds": 5
+  },
+  "artifacts": {
+    "amd64": {
+      "bytes": 22954110,
+      "sha256": "037fead85652a376defd7e95e71af840799db9b832c68470c282b6bb24dd38ae",
+      "oci_rootfs_bytes": 23203840
+    },
+    "arm64": {
+      "bytes": 21495934,
+      "sha256": "807350a0aa0716857057c1661577e845519ab37285a15b7ad8bfe4a641149548",
+      "oci_rootfs_bytes": 21745664
+    }
+  },
+  "runtime_environment": "Linux arm64 Docker VM; canonical scripts executed unchanged with Linux process visibility",
+  "runtime": {
+    "16.14": {
+      "startup_runs": 15,
+      "readiness_seconds": {
+        "min": 0.73,
+        "median": 1.46,
+        "max": 2.29,
+        "p95": 2.29
+      },
+      "idle_samples": 5,
+      "idle_rss_kib": {
+        "min": 25828,
+        "median": 25936,
+        "max": 28088
+      },
+      "initial_instance_rss_max_kib": [
+        28712,
+        28544
+      ]
+    },
+    "18.4": {
+      "startup_runs": 15,
+      "readiness_seconds": {
+        "min": 0.71,
+        "median": 0.96,
+        "max": 1.23,
+        "p95": 1.23
+      },
+      "idle_samples": 5,
+      "idle_rss_kib": {
+        "min": 25784,
+        "median": 25840,
+        "max": 25936
+      },
+      "initial_instance_rss_max_kib": [
+        25808,
+        28288
+      ]
+    }
+  },
+  "checks": [
+    "release_workflow_test.sh",
+    "release_test.sh: two identical final builds, architecture, checksum, corruption rejection, oversized rejection",
+    "footprint_test.sh",
+    "oci-smoke.sh: linux/amd64 and linux/arm64, correct platform/user/version/command surfaces",
+    "deploy-smoke.sh",
+    "integration-contract.sh",
+    "dev-contract.sh",
+    "integration.sh: PostgreSQL 16.14 and PostgreSQL 18.4, full real-system/fault/lifecycle suites",
+    "pinned Go API, CLI and embedded console tests",
+    "actual OCI console/static 200 and unknown API 404",
+    "git diff --check"
+  ],
+  "caveat": "Runtime measurements preceded the final browser-only refresh-error state correction; final executable and OCI gates were repeated after that correction. Go/runtime code did not change."
+}

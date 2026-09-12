@@ -131,7 +131,9 @@ up() {
 	wait_ready
 	printf '%s\n' \
 		"DANS: http://127.0.0.1:${DANS_DEV_HTTP_PORT:-8080}" \
-		"DNS:  127.0.0.1:${DANS_DEV_DNS_PORT:-1053}"
+		"DNS:  127.0.0.1:${DANS_DEV_DNS_PORT:-1053}" \
+		"Console: http://localhost:${DANS_DEV_HTTP_PORT:-8080}/console/" \
+		"Console token: $(sed -n '1p' "$token_file")"
 }
 
 smoke() {

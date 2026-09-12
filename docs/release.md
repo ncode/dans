@@ -1,6 +1,6 @@
 # Release artifacts
 
-One release version produces two static Linux executables and one checksum manifest:
+One release version produces two static Linux executables, each containing the production console assets, and one checksum manifest. Native release builds require Node.js 24/npm in addition to the pinned Go toolchain; the build installs `web/package-lock.json` and rebuilds assets before compiling. The Docker build performs this in a separate Node build stage, so the runtime image has no Node process or frontend package manager:
 
 ```sh
 scripts/release.sh build v1.0.0 dist/v1.0.0

@@ -7,7 +7,11 @@ WHERE singleton = true;
 SELECT t.id AS token_id, i.id AS identity_id, i.kind, i.handle, i.is_operator
 FROM api_tokens AS t
 JOIN identities AS i ON i.id = t.identity_id
-WHERE t.digest = $1
+WHERE t.id IN (
+    SELECT header_token.id FROM api_tokens AS header_token WHERE header_token.digest = sqlc.arg('credential_digest') AND NOT sqlc.arg('is_session')::boolean
+    UNION ALL
+    SELECT session.token_id FROM browser_sessions AS session WHERE session.digest = sqlc.arg('credential_digest') AND sqlc.arg('is_session')::boolean AND session.expires_at > statement_timestamp()
+  )
   AND t.revoked_at IS NULL
   AND (t.expires_at IS NULL OR t.expires_at > statement_timestamp())
   AND i.enabled = true;
@@ -583,7 +587,7 @@ ORDER BY created_at DESC, id DESC
 LIMIT sqlc.arg('row_limit');
 
 -- name: ListEffectiveDelegationDetails :many
-SELECT d.id, d.zone_binding_id,
+SELECT d.id, d.zone_binding_id, binding.powerdns_zone_id, binding.zone_name,
        CASE WHEN d.grantee_identity_id IS NOT NULL THEN 'identity' ELSE 'group' END::text AS grantee_kind,
        COALESCE(d.grantee_identity_id, d.grantee_group_id)::text AS grantee_id,
        d.created_at, d.revoked_at
@@ -652,7 +656,11 @@ WITH authenticated AS (
     SELECT t.id AS token_id, i.id AS identity_id, i.kind, i.handle, i.is_operator
     FROM api_tokens AS t
     JOIN identities AS i ON i.id = t.identity_id
-    WHERE t.digest = sqlc.arg('token_digest')
+    WHERE t.id IN (
+        SELECT header_token.id FROM api_tokens AS header_token WHERE header_token.digest = sqlc.arg('credential_digest') AND NOT sqlc.arg('is_session')::boolean
+        UNION ALL
+        SELECT session.token_id FROM browser_sessions AS session WHERE session.digest = sqlc.arg('credential_digest') AND sqlc.arg('is_session')::boolean AND session.expires_at > statement_timestamp()
+      )
       AND t.revoked_at IS NULL
       AND (t.expires_at IS NULL OR t.expires_at > statement_timestamp())
       AND i.enabled = true

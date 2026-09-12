@@ -3,6 +3,13 @@
 ARG GO_VERSION=1.26.5
 ARG VERSION=dev
 
+FROM --platform=$BUILDPLATFORM node:24-alpine AS frontend
+WORKDIR /src/web
+COPY web/package.json web/package-lock.json ./
+RUN npm ci --ignore-scripts --no-audit --no-fund
+COPY web/ ./
+RUN npm run build
+
 FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-alpine@sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aabd498d0699ff5fb2 AS build
 ARG TARGETOS
 ARG TARGETARCH
@@ -11,6 +18,7 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
+COPY --from=frontend /src/internal/webconsole/dist ./internal/webconsole/dist
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build \
     -trimpath -buildvcs=false \
     -ldflags "-s -w -buildid= -X main.version=$VERSION" \
