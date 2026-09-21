@@ -161,6 +161,103 @@ operator_data() {
 	printf '%s\n' "$body" | operator_cli "$@" --data=-
 }
 
+host_prerequisites() {
+	for command in curl dig; do
+		command -v "$command" >/dev/null 2>&1 || die "make smoke-host requires host command $command"
+	done
+}
+
+host_published_port() {
+	service=$1
+	private_port=$2
+	protocol=${3:-}
+	if [ -n "$protocol" ]; then
+		if ! mapping=$(compose port --protocol "$protocol" "$service" "$private_port" 2>/dev/null); then
+			die "host port lookup failed for $service $private_port"
+		fi
+	else
+		if ! mapping=$(compose port "$service" "$private_port" 2>/dev/null); then
+			die "host port lookup failed for $service $private_port"
+		fi
+	fi
+	[ -n "$mapping" ] ||
+		die "host port lookup failed for $service $private_port"
+	port=${mapping##*:}
+	case "$port" in
+		''|*[!0-9]*) die "host port lookup returned an invalid port for $service $private_port" ;;
+	esac
+	printf '%s\n' "$port"
+}
+
+host_http_probe() {
+	url=$1
+	expected_status=$2
+	expected_body=$3
+	response=$(mktemp "${TMPDIR:-/tmp}/dans-host-http.XXXXXX") ||
+		die 'host HTTP probe could not create a temporary response file'
+	if ! status=$(curl --noproxy '*' --connect-timeout 2 --max-time 5 --silent --show-error \
+		--output "$response" --write-out '%{http_code}' "$url" 2>/dev/null); then
+		rm -f "$response"
+		die "host HTTP probe failed (url $url)"
+	fi
+	if [ "$status" != "$expected_status" ]; then
+		rm -f "$response"
+		die "host HTTP probe returned status $status (url $url)"
+	fi
+	case "$expected_body" in
+		empty)
+		if [ -s "$response" ]; then
+			rm -f "$response"
+			die "host HTTP probe returned unexpected content (url $url)"
+		fi
+		;;
+	*)
+		if ! grep -Fq "$expected_body" "$response"; then
+			rm -f "$response"
+			die "host HTTP probe returned unexpected content (url $url)"
+		fi
+		;;
+	esac
+	rm -f "$response"
+}
+
+host_dns_probe() {
+	transport=$1
+	owner=$2
+	value=$3
+	dns_port=$(host_published_port powerdns 53 "$transport")
+	case "$transport" in
+		udp) transport_options='+notcp' ;;
+		tcp) transport_options='+tcp' ;;
+		*) die "host DNS probe has unknown transport $transport" ;;
+	esac
+	if ! answer=$(dig @127.0.0.1 -p "$dns_port" +time=2 +tries=1 +norecurse \
+		+noedns +ignore +noall +comments +answer "$transport_options" "$owner" A 2>/dev/null); then
+		die "host DNS $transport probe failed (port $dns_port)"
+	fi
+	printf '%s\n' "$answer" | grep -Fq 'status: NOERROR' ||
+		die "host DNS $transport probe returned a non-success status (port $dns_port)"
+	if printf '%s\n' "$answer" | grep -Eq '^;; flags:.*(^|[[:space:]])tc([;[:space:]]|$)'; then
+		die "host DNS $transport probe returned a truncated response (port $dns_port)"
+	fi
+	printf '%s\n' "$answer" | grep -Eq '^;; flags:.*(^|[[:space:]])aa([;[:space:]]|$)' ||
+		die "host DNS $transport probe was not authoritative (port $dns_port)"
+	printf '%s\n' "$answer" | awk -v owner="$owner" -v value="$value" \
+		'$1 == owner && $4 == "A" && $5 == value { found = 1 } END { exit found ? 0 : 1 }' ||
+		die "host DNS $transport probe returned the wrong answer (port $dns_port)"
+}
+
+host_smoke() {
+	owner=$1
+	value=$2
+	http_port=$(host_published_port dans 8080)
+	http_root=http://127.0.0.1:$http_port
+	host_http_probe "$http_root/readyz" 200 empty
+	host_http_probe "$http_root/console/" 200 '<div id="root">'
+	host_dns_probe udp "$owner" "$value"
+	host_dns_probe tcp "$owner" "$value"
+}
+
 up() {
 	mkdir -p "$credential_dir"
 	chmod 700 "$credential_dir"
@@ -205,6 +302,11 @@ up() {
 }
 
 smoke() {
+	host_access=0
+	if [ "${1:-}" = host ]; then
+		host_access=1
+		host_prerequisites
+	fi
 	compose ps --status running --services | grep -Fxq dans || die 'DANS is not running; run make up'
 	wait_ready
 	suffix=$(date +%s)-$$
@@ -241,7 +343,12 @@ smoke() {
 	printf '%s\n' "$audit" | grep -Fq '"result":"succeeded"' || die 'RRset audit event did not succeed'
 	printf '%s\n' "$audit" | grep -Fq '"actor_id":"'"$identity_id"'"' || die 'audit event has the wrong actor'
 	printf '%s\n' "$audit" | grep -Fq '"target_id":"'"$binding_id"'"' || die 'audit event has the wrong binding'
-	printf '%s\n' "smoke: ok (zone $zone, identity $handle; fixtures retained)"
+	if [ "$host_access" -eq 1 ]; then
+		host_smoke "$allowed" 192.0.2.10
+		printf '%s\n' "smoke-host: ok (zone $zone, identity $handle; fixtures retained)"
+	else
+		printf '%s\n' "smoke: ok (zone $zone, identity $handle; fixtures retained)"
+	fi
 }
 
 reset() {
@@ -259,6 +366,7 @@ case "${1:-}" in
 	status) compose ps; compose exec -T dans /usr/local/bin/dans health ready ;;
 	logs) compose logs --follow dans postgres powerdns ;;
 	smoke) smoke ;;
+	smoke-host) smoke host ;;
 	reset) reset ;;
-	*) die 'usage: scripts/dev-stack.sh {up|down|status|logs|smoke|reset}' ;;
+	*) die 'usage: scripts/dev-stack.sh {up|down|status|logs|smoke|smoke-host|reset}' ;;
 esac

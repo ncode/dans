@@ -17,6 +17,8 @@ make smoke
 
 `make up` initializes the installation, stores the local DANS operator token at `.dans/dev/operator-token`, and prints the console URL and sign-in token after startup succeeds. `make smoke` creates an isolated fixture, performs an allowed delegated RRset write, confirms an out-of-scope write is denied, queries authoritative DNS, and verifies the audit outcome.
 
+After `make up`, optional `make smoke-host` repeats that fixture check and verifies the published loopback HTTP and DNS paths from the host over both UDP and TCP. It requires host `curl` and `dig`; ordinary `make smoke` remains Docker-only.
+
 Run stack lifecycle through Make. Its targets wrap Compose and keep container, volume, image, and credential state bound to this checkout, even if the checkout moves.
 
 DANS listens at `http://127.0.0.1:8080`; authoritative DNS listens on TCP and UDP at `127.0.0.1:1053`. To avoid port conflicts, export the two overrides before running stack commands:

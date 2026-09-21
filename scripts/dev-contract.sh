@@ -14,6 +14,7 @@ fail() {
 
 [ -f "$compose" ] || fail "missing root compose.yaml"
 [ -x "$lifecycle" ] || fail "missing executable scripts/dev-stack.sh"
+[ -x "$root/scripts/dev-host-smoke_test.sh" ] || fail "missing executable host smoke checks"
 
 grep -Fq 'name: ${COMPOSE_PROJECT_NAME:-dans-dev}' "$compose" || fail "Compose project identity is not overridable"
 grep -Fq 'image: ${COMPOSE_PROJECT_NAME:-dans-dev}:local' "$compose" || fail "the local image is shared across checkouts"
@@ -42,9 +43,19 @@ grep -Fq 'powerdns-data:' "$compose" || fail "PowerDNS data is not persistent"
 grep -Fq 'postgres-data:/var/lib/postgresql/data' "$compose" || fail "PostgreSQL data uses the wrong mount target"
 grep -Fq 'powerdns-data:/var/lib/powerdns' "$compose" || fail "PowerDNS data uses the wrong mount target"
 
-for target in help up down status logs smoke reset; do
+for target in help up down status logs smoke smoke-host reset; do
 	grep -Eq "^$target:" "$makefile" || fail "make $target is missing"
 done
+
+grep -Fq 'host_prerequisites' "$lifecycle" || fail "host smoke does not check host prerequisites"
+grep -Fq 'curl --noproxy' "$lifecycle" || fail "host HTTP probes do not bypass proxies"
+grep -Fq '+notcp' "$lifecycle" || fail "host UDP DNS probes can fall back to TCP"
+grep -Fq '+tcp' "$lifecycle" || fail "host TCP DNS probes are missing"
+grep -Fq '+ignore' "$lifecycle" || fail "host DNS probes can accept truncated fallback responses"
+grep -Fq -- '--connect-timeout 2' "$lifecycle" || fail "host HTTP probes are unbounded"
+grep -Fq -- '--max-time 5' "$lifecycle" || fail "host HTTP probes are unbounded"
+grep -Fq '+time=2 +tries=1' "$lifecycle" || fail "host DNS probes are unbounded"
+grep -Fq 'smoke-host' "$readme" || fail "README omits host smoke"
 
 grep -Fq 'db migrate' "$lifecycle" || fail "startup does not run migrations"
 grep -Fq 'runtime.sql' "$lifecycle" || fail "startup does not apply runtime grants"
@@ -101,7 +112,9 @@ fi
 
 sh -n "$lifecycle"
 sh -n "$root/scripts/dev-stack_test.sh"
+sh -n "$root/scripts/dev-host-smoke_test.sh"
 "$root/scripts/dev-stack_test.sh"
+"$root/scripts/dev-host-smoke_test.sh"
 docker compose --file "$compose" config --quiet
 
 printf '%s\n' 'dev contract: ok'

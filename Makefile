@@ -1,4 +1,4 @@
-.PHONY: benchmark-check benchmark-postgres-check dev-contract down generate generate-check help integration integration-contract logs openapi-source-update openapi-source-verify reset smoke status test up frontend frontend-test
+.PHONY: benchmark-check benchmark-postgres-check dev-contract down generate generate-check help integration integration-contract logs openapi-source-update openapi-source-verify reset smoke smoke-host status test up frontend frontend-test
 
 DEV_STACK := ./scripts/dev-stack.sh
 
@@ -7,6 +7,7 @@ help:
 		'Local Docker stack:' \
 		'  make up                 Build, initialize, and start DANS' \
 		'  make smoke              Exercise delegation, DNS, and audit end to end' \
+		'  make smoke-host         Also verify published HTTP and DNS from the host (curl + dig)' \
 		'  make status             Show containers and DANS readiness' \
 		'  make logs               Follow stack logs' \
 		'  make down               Stop containers and preserve local data' \
@@ -34,6 +35,9 @@ logs:
 
 smoke:
 	@$(DEV_STACK) smoke
+
+smoke-host:
+	@$(DEV_STACK) smoke-host
 
 reset:
 	@CONFIRM='$(CONFIRM)' $(DEV_STACK) reset
