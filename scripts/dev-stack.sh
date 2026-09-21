@@ -38,6 +38,14 @@ json_string() {
 	printf '%s\n' "$value"
 }
 
+json_bool() {
+	field=$1
+	value=$(sed -n \
+		's/.*"'"$field"'":true.*/true/p; s/.*"'"$field"'":false.*/false/p')
+	[ -n "$value" ] || die "response omitted $field"
+	printf '%s\n' "$value"
+}
+
 wait_postgres() {
 	attempt=0
 	until compose exec -T postgres pg_isready -U dans_ddl -d dans >/dev/null 2>&1; do
@@ -62,31 +70,74 @@ offline() {
 		-e DANS_DATABASE_URL="$runtime_url" -e DANS_OUTPUT=json dans "$@"
 }
 
-ensure_token() {
-	[ ! -s "$token_file" ] || {
-		chmod 600 "$token_file"
-		return
-	}
-	bootstrap_error=$credential_dir/bootstrap-error
-	if credential=$(offline bootstrap --handle dev-operator \
-		--display-name 'Dev operator' --token-label local 2>"$bootstrap_error"); then
-		rm -f "$bootstrap_error"
+validate_identity() {
+	response=$1
+	handle=$(printf '%s\n' "$response" | json_string handle)
+	enabled=$(printf '%s\n' "$response" | json_bool enabled)
+	operator=$(printf '%s\n' "$response" | json_bool operator)
+	[ "$handle" = dev-operator ] || return 1
+	[ "$enabled" = true ] || return 1
+	[ "$operator" = true ] || return 1
+}
+
+validate_credential() {
+	token=$1
+	if response=$(cli_with_token "$token" me get 2>&1); then
+		validate_identity "$response" || {
+			printf '%s\n' 'dev stack: credential belongs to an unexpected identity' >&2
+			return 1
+		}
+		return 0
 	else
-		if ! grep -Fq 'database: conflict' "$bootstrap_error"; then
-			cat "$bootstrap_error" >&2
-			rm -f "$bootstrap_error"
-			die 'bootstrap failed'
+		status=$?
+		if [ "$status" -eq 1 ] && printf '%s\n' "$response" | grep -Fq '401 Unauthorized'; then
+			return 10
 		fi
-		rm -f "$bootstrap_error"
-		recovery_label=local-recovery-$(date +%s)-$$
-		credential=$(offline recover operator-token --handle dev-operator \
-			--token-label "$recovery_label")
+		printf '%s\n' 'dev stack: credential validation failed' >&2
+		return 1
 	fi
+}
+
+publish_credential() {
+	credential=$1
 	secret=$(printf '%s\n' "$credential" | json_string secret)
+	validate_credential "$secret" || die 'issued credential failed validation'
 	temporary=$token_file.tmp
-	(umask 077 && printf '%s\n' "$secret" >"$temporary")
-	chmod 600 "$temporary"
-	mv "$temporary" "$token_file"
+	if ! (umask 077 && printf '%s\n' "$secret" >"$temporary"); then
+		rm -f "$temporary"
+		die 'write operator token failed'
+	fi
+	if ! chmod 600 "$temporary"; then
+		rm -f "$temporary"
+		die 'secure operator token failed'
+	fi
+	if ! mv "$temporary" "$token_file"; then
+		rm -f "$temporary"
+		die 'install operator token failed'
+	fi
+}
+
+ensure_token() {
+	if [ -s "$token_file" ]; then
+		token=$(sed -n '1p' "$token_file")
+		if validate_credential "$token"; then
+			chmod 600 "$token_file"
+			return
+		else
+			status=$?
+			[ "$status" -eq 10 ] || die 'cached operator credential is unusable'
+		fi
+	fi
+	recovery_label=local-recovery-$(date +%s)-$$
+	recovery_error=$credential_dir/recovery-error
+	if ! credential=$(offline recover operator-token --handle dev-operator \
+		--token-label "$recovery_label" 2>"$recovery_error"); then
+		cat "$recovery_error" >&2
+		rm -f "$recovery_error"
+		die 'operator credential recovery failed'
+	fi
+	rm -f "$recovery_error"
+	publish_credential "$credential"
 }
 
 cli_with_token() {
@@ -126,9 +177,26 @@ up() {
 	compose exec -T postgres psql -X -v ON_ERROR_STOP=1 -U dans_ddl -d dans \
 		--set=database_name=dans --set=schema_name=public \
 		--set=runtime_role=dans_runtime --file=/dans/runtime.sql >/dev/null
-	ensure_token
+	bootstrap_error=$credential_dir/bootstrap-error
+	if bootstrap_candidate=$(offline bootstrap --handle dev-operator \
+		--display-name 'Dev operator' --token-label local 2>"$bootstrap_error"); then
+		rm -f "$bootstrap_error"
+	else
+		if ! grep -Fq 'database: conflict' "$bootstrap_error"; then
+			cat "$bootstrap_error" >&2
+			rm -f "$bootstrap_error"
+			die 'bootstrap failed'
+		fi
+		rm -f "$bootstrap_error"
+		bootstrap_candidate=
+	fi
 	compose up --detach dans
 	wait_ready
+	if [ -n "$bootstrap_candidate" ]; then
+		publish_credential "$bootstrap_candidate"
+	else
+		ensure_token
+	fi
 	printf '%s\n' \
 		"DANS: http://127.0.0.1:${DANS_DEV_HTTP_PORT:-8080}" \
 		"DNS:  127.0.0.1:${DANS_DEV_DNS_PORT:-1053}" \

@@ -50,6 +50,19 @@ grep -Fq 'db migrate' "$lifecycle" || fail "startup does not run migrations"
 grep -Fq 'runtime.sql' "$lifecycle" || fail "startup does not apply runtime grants"
 grep -Fq 'bootstrap' "$lifecycle" || fail "startup does not bootstrap a DANS operator"
 grep -Fq 'recover operator-token' "$lifecycle" || fail "startup cannot recover a missing local token"
+grep -Fq 'me get' "$lifecycle" || fail "startup does not validate the local operator token"
+grep -Fq '401 Unauthorized' "$lifecycle" || fail "startup does not classify rejected credentials"
+grep -Fq 'validate_credential' "$lifecycle" || fail "startup does not validate credential identity"
+grep -Fq 'validate_identity' "$lifecycle" || fail "startup does not validate the expected identity"
+grep -Fq '[ "$handle" = dev-operator ]' "$lifecycle" || fail "startup accepts the wrong operator handle"
+grep -Fq '[ "$enabled" = true ]' "$lifecycle" || fail "startup accepts a disabled operator"
+grep -Fq '[ "$operator" = true ]' "$lifecycle" || fail "startup accepts a non-operator identity"
+grep -Fq 'bootstrap_candidate=' "$lifecycle" || fail "startup does not separate bootstrap from cached-token validation"
+grep -Fq 'publish_credential "$bootstrap_candidate"' "$lifecycle" || fail "bootstrap credentials are not validated before publication"
+grep -Fq 'publish_credential "$credential"' "$lifecycle" || fail "recovered credentials are not validated before publication"
+grep -Fq 'return 10' "$lifecycle" || fail "startup does not bound recovery to rejected credentials"
+grep -Fq 'credential belongs to an unexpected identity' "$lifecycle" || fail "startup does not fail closed for unexpected identities"
+grep -Fq 'credential validation failed' "$lifecycle" || fail "startup does not fail closed for validation errors"
 grep -Fq 'database: conflict' "$lifecycle" || fail "startup masks non-conflict bootstrap failures"
 grep -Fq 'umask 077' "$lifecycle" || fail "operator token creation lacks a restrictive umask"
 grep -Fq 'chmod 600' "$lifecycle" || fail "operator token permissions are not enforced"
@@ -87,6 +100,8 @@ if grep -Fq 'openspec/changes/build-dans-v1/' "$readme"; then
 fi
 
 sh -n "$lifecycle"
+sh -n "$root/scripts/dev-stack_test.sh"
+"$root/scripts/dev-stack_test.sh"
 docker compose --file "$compose" config --quiet
 
 printf '%s\n' 'dev contract: ok'
