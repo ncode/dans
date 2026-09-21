@@ -38,7 +38,7 @@ make reset CONFIRM=1
 
 Open the console URL printed by `make up` and sign in with its operator token. Both `http://localhost:8080/console/` and `http://127.0.0.1:8080/console/` work locally; adjust the port if overridden. The local Compose stack explicitly enables `development-http` cookies so Safari can sign in over HTTP. These cookies remain HttpOnly and SameSite=Strict, with the same seven-day maximum and current token checks. The default `secure` mode uses a separate Secure cookie and HTTPS ingress for production.
 
-The console provides zones, complete RRset editing, server-side paginated browsing, operator delegations, and audit history. Identity and group administration remain in the CLI. Large zones index on first access; the table shows progress and freshness. See the [console guide](docs/frontend.md) and [API/session contract](docs/api.md).
+The console provides zones, complete RRset editing, server-side paginated browsing, operator delegations, identities, groups, direct membership, and zone binding recovery. Every signed-in identity can inspect its own access and create or revoke its API tokens. Operators can inspect current authority separately from retained assignments and filter or download audit history as NDJSON. Large zones index on first access; the table shows progress and freshness. See the [console guide](docs/frontend.md) and [API/session contract](docs/api.md).
 
 ## How it works
 

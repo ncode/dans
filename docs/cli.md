@@ -147,4 +147,4 @@ These commands use `DANS_DATABASE_URL` or `database_url_file` and never call the
 
 ## Console sign-in and CLI credentials
 
-The embedded browser console uses the same public API with a token-backed browser session. Existing CLI commands continue using `X-API-Key`; signing out of the console does not revoke that CLI token. Revoke a token through the existing token-management command to end all browser sessions associated with it. Identity and group administration remain in the CLI; the console reads those resources for delegation selection. See [the browser-session and indexed-browse API](api.md).
+The embedded browser console uses the same public API with a token-backed browser session. Existing CLI commands continue using `X-API-Key`; signing out of the console does not revoke that CLI token. Revoking a token through the CLI or console ends all browser sessions associated with it. The console marks the token backing the current sign-in and confirms revocation consequences. Identity, group, membership, token, and binding administration are also available in the console under the same authority rules. See [the management and browser API](api.md).

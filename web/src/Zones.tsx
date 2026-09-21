@@ -26,11 +26,13 @@ export function Zones({
   route,
   identity,
   grants,
+  grantsComplete,
   notify,
 }: {
   route: string;
   identity: Identity;
   grants: Delegation[];
+  grantsComplete: boolean;
   notify: (message: string) => void;
 }) {
   const [zones, setZones] = useState<Zone[]>([]),
@@ -120,6 +122,7 @@ export function Zones({
             zone={zone}
             identity={identity}
             grants={grants}
+            grantsComplete={grantsComplete}
             notify={notify}
           />
         </>
@@ -236,11 +239,13 @@ function ZoneRecords({
   zone,
   identity,
   grants,
+  grantsComplete,
   notify,
 }: {
   zone: Zone;
   identity: Identity;
   grants: Delegation[];
+  grantsComplete: boolean;
   notify: (message: string) => void;
 }) {
   const [page, setPage] = useState<BrowsePage | null>(null),
@@ -330,6 +335,7 @@ function ZoneRecords({
     }
   }
   const allowed = (item: RRset, action: string) =>
+    !grantsComplete ||
     canChange(identity.operator, grants, zone, item.name, item.type, action);
   const zoneGrants = grants.filter((grant) => grant.zone_id === zone.id);
   return (
@@ -538,7 +544,14 @@ function ZoneRecords({
             Available actions are advisory; the API checks current authority for
             every write.
           </p>
-          {!identity.operator && !zoneGrants.length && (
+          {!identity.operator && !grantsComplete && (
+            <Alert type="info">
+              Only the first page of your authority is loaded. Missing grants
+              here do not mean access is denied. View all pages in My access;
+              the API checks current authority on every write.
+            </Alert>
+          )}
+          {!identity.operator && grantsComplete && !zoneGrants.length && (
             <p>No effective write delegations cover this zone.</p>
           )}
           {zoneGrants.map((grant) => (

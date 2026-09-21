@@ -31,6 +31,7 @@ type IAMStore interface {
 	AddGroupMember(context.Context, database.Actor, string, string) (database.GroupMembership, error)
 	RemoveGroupMember(context.Context, database.Actor, string, string) error
 	ListGroupMembers(context.Context, database.Actor, string, database.IdentityListOptions) (database.IdentityPage, error)
+	ListIdentityGroups(context.Context, database.Actor, string, database.GroupListOptions) (database.GroupPage, error)
 	ListCurrentIdentityGroups(context.Context, database.Actor, database.GroupListOptions) (database.GroupPage, error)
 	GetCurrentIdentity(context.Context, database.Actor) (database.Identity, error)
 	CreateToken(context.Context, database.Actor, string, database.TokenCreate) (database.CreatedToken, error)
@@ -233,11 +234,14 @@ func (handler *IAMHandler) ListGroupMembers(ctx context.Context, request api.Lis
 	if err != nil {
 		return listGroupMembersFailure(err), nil
 	}
-	filters := url.Values{"group_id": {request.GroupId.String()}}.Encode()
+	values := url.Values{"group_id": {request.GroupId.String()}}
+	setStringFilter(values, "handle_prefix", request.Params.HandlePrefix)
+	filters := values.Encode()
 	options, err := identityPageOptions(request.Params.Limit, request.Params.Cursor, "group-members", filters)
 	if err != nil {
 		return listGroupMembersFailure(err), nil
 	}
+	options.HandlePrefix = request.Params.HandlePrefix
 	result, err := handler.store.ListGroupMembers(ctx, actor, request.GroupId.String(), options)
 	if err != nil {
 		return listGroupMembersFailure(err), nil
@@ -296,7 +300,9 @@ func (handler *IAMHandler) ListCurrentIdentityGroups(ctx context.Context, reques
 	if err != nil {
 		return listCurrentGroupsFailure(err), nil
 	}
-	filters := url.Values{"identity_id": {actor.IdentityID}}.Encode()
+	values := url.Values{"identity_id": {actor.IdentityID}}
+	setStringFilter(values, "handle_prefix", request.Params.HandlePrefix)
+	filters := values.Encode()
 	options, err := currentGroupListOptions(request.Params, filters)
 	if err != nil {
 		return listCurrentGroupsFailure(err), nil
@@ -447,7 +453,7 @@ func requestActor(ctx context.Context) (database.Actor, error) {
 
 func identityListOptions(params api.ListIdentitiesParams) (database.IdentityListOptions, string, error) {
 	values := make(url.Values)
-	options := database.IdentityListOptions{Limit: intValue(params.Limit), Enabled: params.Enabled, Operator: params.Operator, Handle: params.Handle}
+	options := database.IdentityListOptions{Limit: intValue(params.Limit), Enabled: params.Enabled, Operator: params.Operator, Handle: params.Handle, HandlePrefix: params.HandlePrefix}
 	if params.Kind != nil {
 		kind := string(*params.Kind)
 		options.Kind = &kind
@@ -456,6 +462,7 @@ func identityListOptions(params api.ListIdentitiesParams) (database.IdentityList
 	setBoolFilter(values, "enabled", params.Enabled)
 	setBoolFilter(values, "operator", params.Operator)
 	setStringFilter(values, "handle", params.Handle)
+	setStringFilter(values, "handle_prefix", params.HandlePrefix)
 	filters := values.Encode()
 	after, err := decodePageCursor(params.Cursor, "identities", filters)
 	options.After = after
@@ -471,14 +478,15 @@ func groupListOptions(params api.ListGroupsParams, resource string) (database.Gr
 	values := make(url.Values)
 	setBoolFilter(values, "enabled", params.Enabled)
 	setStringFilter(values, "handle", params.Handle)
+	setStringFilter(values, "handle_prefix", params.HandlePrefix)
 	filters := values.Encode()
 	after, err := decodePageCursor(params.Cursor, resource, filters)
-	return database.GroupListOptions{Limit: intValue(params.Limit), After: after, Enabled: params.Enabled, Handle: params.Handle}, filters, err
+	return database.GroupListOptions{Limit: intValue(params.Limit), After: after, Enabled: params.Enabled, Handle: params.Handle, HandlePrefix: params.HandlePrefix}, filters, err
 }
 
 func currentGroupListOptions(params api.ListCurrentIdentityGroupsParams, filters string) (database.GroupListOptions, error) {
 	after, err := decodePageCursor(params.Cursor, "identity-groups", filters)
-	return database.GroupListOptions{Limit: intValue(params.Limit), After: after}, err
+	return database.GroupListOptions{Limit: intValue(params.Limit), After: after, HandlePrefix: params.HandlePrefix}, err
 }
 
 func decodePageCursor(cursor *api.Cursor, resource, filters string) (*page.Key, error) {
@@ -732,3 +740,40 @@ func createCurrentTokenFailure(err error) api.CreateCurrentIdentityTokendefaultJ
 }
 
 var _ api.StrictServerInterface = (*IAMHandler)(nil)
+
+func (handler *IAMHandler) GetCurrentCredential(ctx context.Context, _ api.GetCurrentCredentialRequestObject) (api.GetCurrentCredentialResponseObject, error) {
+	actor, err := requestActor(ctx)
+	if err != nil {
+		body, status := managementError(err)
+		return api.GetCurrentCredentialdefaultJSONResponse{Body: body, StatusCode: status}, nil
+	}
+	id, err := uuid.Parse(actor.TokenID)
+	if err != nil {
+		return nil, err
+	}
+	return api.GetCurrentCredential200JSONResponse{TokenId: id}, nil
+}
+
+func (handler *IAMHandler) ListIdentityGroups(ctx context.Context, request api.ListIdentityGroupsRequestObject) (api.ListIdentityGroupsResponseObject, error) {
+	actor, err := requestActor(ctx)
+	values := url.Values{"identity_id": {request.IdentityId.String()}}
+	setStringFilter(values, "handle_prefix", request.Params.HandlePrefix)
+	filters := values.Encode()
+	var result database.GroupPage
+	if err == nil {
+		var after *page.Key
+		after, err = decodePageCursor(request.Params.Cursor, "operator-identity-groups", filters)
+		if err == nil {
+			result, err = handler.store.ListIdentityGroups(ctx, actor, request.IdentityId.String(), database.GroupListOptions{Limit: intValue(request.Params.Limit), After: after, HandlePrefix: request.Params.HandlePrefix})
+		}
+	}
+	if err != nil {
+		body, status := managementError(err)
+		return api.ListIdentityGroupsdefaultJSONResponse{Body: body, StatusCode: status}, nil
+	}
+	response, err := groupPageResponse(result, "operator-identity-groups", filters)
+	if err != nil {
+		return nil, err
+	}
+	return api.ListIdentityGroups200JSONResponse(response), nil
+}

@@ -49,6 +49,8 @@ async function fixture(page: Page, operator = true) {
         enabled: true,
         operator,
       });
+    if (path === "/dans/me/credential")
+      return reply({ token_id: "test-token" });
     if (path === "/dans/me/delegations")
       return reply({
         items: operator
@@ -449,7 +451,9 @@ test("keyboard focus, narrow layout and complete long values", async ({
   });
 });
 
-test("native 200 percent browser zoom keeps forms usable", async () => {
+test("native 200 percent browser zoom keeps forms usable", async ({
+  baseURL,
+}) => {
   const profile = await mkdtemp(join(tmpdir(), "console-zoom-"));
   try {
     await mkdir(join(profile, "Default"));
@@ -464,7 +468,7 @@ test("native 200 percent browser zoom keeps forms usable", async () => {
       channel: "chromium",
       headless: true,
       viewport: null,
-      baseURL: "http://localhost:5173",
+      baseURL,
       args: ["--window-size=1280,960"],
     });
     try {

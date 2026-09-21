@@ -1119,6 +1119,11 @@ func (q *Queries) GetZoneBindingForUpdate(ctx context.Context, id string) (ZoneB
 
 const getZoneDeletionReconciliationState = `-- name: GetZoneDeletionReconciliationState :one
 SELECT
+    COALESCE((SELECT outcome.result FROM audit_events AS intent
+      JOIN audit_events AS outcome ON outcome.intent_event_id=intent.id AND outcome.event_kind='dns_outcome'
+      WHERE intent.event_kind='dns_intent' AND intent.action='powerdns.zone.delete'
+        AND intent.target_kind='zone_binding' AND intent.target_id=$1
+      ORDER BY outcome.occurred_at DESC, outcome.id DESC LIMIT 1), '')::text AS latest_result,
     EXISTS (
         SELECT 1
         FROM audit_events AS intent
@@ -1175,17 +1180,19 @@ SELECT
 `
 
 type GetZoneDeletionReconciliationStateRow struct {
-	HasAttempt      bool `db:"has_attempt"`
-	HasPending      bool `db:"has_pending"`
-	HasSucceeded    bool `db:"has_succeeded"`
-	HasRetryable    bool `db:"has_retryable"`
-	ConfirmedAbsent bool `db:"confirmed_absent"`
+	LatestResult    string `db:"latest_result"`
+	HasAttempt      bool   `db:"has_attempt"`
+	HasPending      bool   `db:"has_pending"`
+	HasSucceeded    bool   `db:"has_succeeded"`
+	HasRetryable    bool   `db:"has_retryable"`
+	ConfirmedAbsent bool   `db:"confirmed_absent"`
 }
 
 func (q *Queries) GetZoneDeletionReconciliationState(ctx context.Context, bindingID string) (GetZoneDeletionReconciliationStateRow, error) {
 	row := q.db.QueryRow(ctx, getZoneDeletionReconciliationState, bindingID)
 	var i GetZoneDeletionReconciliationStateRow
 	err := row.Scan(
+		&i.LatestResult,
 		&i.HasAttempt,
 		&i.HasPending,
 		&i.HasSucceeded,
@@ -1897,6 +1904,7 @@ JOIN zone_bindings AS binding
   ON binding.id = d.zone_binding_id
  AND binding.retired_at IS NULL
 WHERE d.revoked_at IS NULL
+  AND EXISTS (SELECT 1 FROM identities WHERE id = NULLIF($1::text, '')::uuid AND enabled)
   AND (
       d.grantee_identity_id = NULLIF($1::text, '')::uuid
       OR EXISTS (
@@ -1978,19 +1986,21 @@ SELECT i.id, i.kind, i.handle, i.display_name, i.enabled, i.is_operator,
 FROM group_memberships AS m
 JOIN identities AS i ON i.id = m.identity_id
 WHERE m.group_id = $1
+  AND ($2::text IS NULL OR starts_with(i.handle, $2))
   AND (
-      $2::timestamptz IS NULL
+      $3::timestamptz IS NULL
       OR (i.created_at, i.id) < (
-          $2,
-          NULLIF($3::text, '')::uuid
+          $3,
+          NULLIF($4::text, '')::uuid
       )
   )
 ORDER BY i.created_at DESC, i.id DESC
-LIMIT $4
+LIMIT $5
 `
 
 type ListGroupMembersParams struct {
 	GroupID        string             `db:"group_id"`
+	HandlePrefix   *string            `db:"handle_prefix"`
 	AfterCreatedAt pgtype.Timestamptz `db:"after_created_at"`
 	AfterID        string             `db:"after_id"`
 	RowLimit       int32              `db:"row_limit"`
@@ -1999,6 +2009,7 @@ type ListGroupMembersParams struct {
 func (q *Queries) ListGroupMembers(ctx context.Context, arg ListGroupMembersParams) ([]Identity, error) {
 	rows, err := q.db.Query(ctx, listGroupMembers,
 		arg.GroupID,
+		arg.HandlePrefix,
 		arg.AfterCreatedAt,
 		arg.AfterID,
 		arg.RowLimit,
@@ -2035,20 +2046,22 @@ SELECT id, handle, display_name, enabled, created_at, updated_at
 FROM groups
 WHERE ($1::boolean IS NULL OR enabled = $1)
   AND ($2::text IS NULL OR handle = $2)
+  AND ($3::text IS NULL OR starts_with(handle, $3))
   AND (
-      $3::timestamptz IS NULL
+      $4::timestamptz IS NULL
       OR (created_at, id) < (
-          $3,
-          NULLIF($4::text, '')::uuid
+          $4,
+          NULLIF($5::text, '')::uuid
       )
   )
 ORDER BY created_at DESC, id DESC
-LIMIT $5
+LIMIT $6
 `
 
 type ListGroupsParams struct {
 	Enabled        *bool              `db:"enabled"`
 	Handle         *string            `db:"handle"`
+	HandlePrefix   *string            `db:"handle_prefix"`
 	AfterCreatedAt pgtype.Timestamptz `db:"after_created_at"`
 	AfterID        string             `db:"after_id"`
 	RowLimit       int32              `db:"row_limit"`
@@ -2058,6 +2071,7 @@ func (q *Queries) ListGroups(ctx context.Context, arg ListGroupsParams) ([]Group
 	rows, err := q.db.Query(ctx, listGroups,
 		arg.Enabled,
 		arg.Handle,
+		arg.HandlePrefix,
 		arg.AfterCreatedAt,
 		arg.AfterID,
 		arg.RowLimit,
@@ -2094,15 +2108,16 @@ WHERE ($1::text IS NULL OR kind = $1)
   AND ($2::boolean IS NULL OR enabled = $2)
   AND ($3::boolean IS NULL OR is_operator = $3)
   AND ($4::text IS NULL OR handle = $4)
+  AND ($5::text IS NULL OR starts_with(handle, $5))
   AND (
-      $5::timestamptz IS NULL
+      $6::timestamptz IS NULL
       OR (created_at, id) < (
-          $5,
-          NULLIF($6::text, '')::uuid
+          $6,
+          NULLIF($7::text, '')::uuid
       )
   )
 ORDER BY created_at DESC, id DESC
-LIMIT $7
+LIMIT $8
 `
 
 type ListIdentitiesParams struct {
@@ -2110,6 +2125,7 @@ type ListIdentitiesParams struct {
 	Enabled        *bool              `db:"enabled"`
 	IsOperator     *bool              `db:"is_operator"`
 	Handle         *string            `db:"handle"`
+	HandlePrefix   *string            `db:"handle_prefix"`
 	AfterCreatedAt pgtype.Timestamptz `db:"after_created_at"`
 	AfterID        string             `db:"after_id"`
 	RowLimit       int32              `db:"row_limit"`
@@ -2121,6 +2137,7 @@ func (q *Queries) ListIdentities(ctx context.Context, arg ListIdentitiesParams) 
 		arg.Enabled,
 		arg.IsOperator,
 		arg.Handle,
+		arg.HandlePrefix,
 		arg.AfterCreatedAt,
 		arg.AfterID,
 		arg.RowLimit,
@@ -2152,24 +2169,108 @@ func (q *Queries) ListIdentities(ctx context.Context, arg ListIdentitiesParams) 
 	return items, nil
 }
 
+const listIdentityAssignmentDetails = `-- name: ListIdentityAssignmentDetails :many
+SELECT d.id, d.zone_binding_id, binding.powerdns_zone_id, binding.zone_name,
+       CASE WHEN d.grantee_identity_id IS NOT NULL THEN 'identity' ELSE 'group' END::text AS grantee_kind,
+       COALESCE(d.grantee_identity_id, d.grantee_group_id)::text AS grantee_id,
+       d.created_at, d.revoked_at, target.enabled AS identity_enabled,
+       g.enabled AS group_enabled, g.handle AS group_handle,
+       CASE WHEN binding.retired_at IS NULL THEN 'active' ELSE 'retired' END::text AS binding_status,
+       (target.enabled AND (g.id IS NULL OR g.enabled) AND d.revoked_at IS NULL AND binding.retired_at IS NULL)::boolean AS effective
+FROM delegations AS d
+JOIN zone_bindings AS binding ON binding.id = d.zone_binding_id
+JOIN identities AS target ON target.id = $1
+LEFT JOIN groups AS g ON g.id = d.grantee_group_id
+WHERE (d.grantee_identity_id = target.id OR EXISTS (
+    SELECT 1 FROM group_memberships AS m WHERE m.identity_id = target.id AND m.group_id = d.grantee_group_id
+))
+AND ($2::timestamptz IS NULL OR (d.created_at, d.id) < ($2, NULLIF($3::text, '')::uuid))
+ORDER BY d.created_at DESC, d.id DESC
+LIMIT $4
+`
+
+type ListIdentityAssignmentDetailsParams struct {
+	IdentityID     string             `db:"identity_id"`
+	AfterCreatedAt pgtype.Timestamptz `db:"after_created_at"`
+	AfterID        string             `db:"after_id"`
+	RowLimit       int32              `db:"row_limit"`
+}
+
+type ListIdentityAssignmentDetailsRow struct {
+	ID              string             `db:"id"`
+	ZoneBindingID   string             `db:"zone_binding_id"`
+	PowerDNSZoneID  string             `db:"powerdns_zone_id"`
+	ZoneName        string             `db:"zone_name"`
+	GranteeKind     string             `db:"grantee_kind"`
+	GranteeID       string             `db:"grantee_id"`
+	CreatedAt       pgtype.Timestamptz `db:"created_at"`
+	RevokedAt       pgtype.Timestamptz `db:"revoked_at"`
+	IdentityEnabled bool               `db:"identity_enabled"`
+	GroupEnabled    *bool              `db:"group_enabled"`
+	GroupHandle     *string            `db:"group_handle"`
+	BindingStatus   string             `db:"binding_status"`
+	Effective       bool               `db:"effective"`
+}
+
+func (q *Queries) ListIdentityAssignmentDetails(ctx context.Context, arg ListIdentityAssignmentDetailsParams) ([]ListIdentityAssignmentDetailsRow, error) {
+	rows, err := q.db.Query(ctx, listIdentityAssignmentDetails,
+		arg.IdentityID,
+		arg.AfterCreatedAt,
+		arg.AfterID,
+		arg.RowLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListIdentityAssignmentDetailsRow{}
+	for rows.Next() {
+		var i ListIdentityAssignmentDetailsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ZoneBindingID,
+			&i.PowerDNSZoneID,
+			&i.ZoneName,
+			&i.GranteeKind,
+			&i.GranteeID,
+			&i.CreatedAt,
+			&i.RevokedAt,
+			&i.IdentityEnabled,
+			&i.GroupEnabled,
+			&i.GroupHandle,
+			&i.BindingStatus,
+			&i.Effective,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listIdentityGroups = `-- name: ListIdentityGroups :many
 SELECT g.id, g.handle, g.display_name, g.enabled, g.created_at, g.updated_at
 FROM group_memberships AS m
 JOIN groups AS g ON g.id = m.group_id
 WHERE m.identity_id = $1
+  AND ($2::text IS NULL OR starts_with(g.handle, $2))
   AND (
-      $2::timestamptz IS NULL
+      $3::timestamptz IS NULL
       OR (g.created_at, g.id) < (
-          $2,
-          NULLIF($3::text, '')::uuid
+          $3,
+          NULLIF($4::text, '')::uuid
       )
   )
 ORDER BY g.created_at DESC, g.id DESC
-LIMIT $4
+LIMIT $5
 `
 
 type ListIdentityGroupsParams struct {
 	IdentityID     string             `db:"identity_id"`
+	HandlePrefix   *string            `db:"handle_prefix"`
 	AfterCreatedAt pgtype.Timestamptz `db:"after_created_at"`
 	AfterID        string             `db:"after_id"`
 	RowLimit       int32              `db:"row_limit"`
@@ -2178,6 +2279,7 @@ type ListIdentityGroupsParams struct {
 func (q *Queries) ListIdentityGroups(ctx context.Context, arg ListIdentityGroupsParams) ([]Group, error) {
 	rows, err := q.db.Query(ctx, listIdentityGroups,
 		arg.IdentityID,
+		arg.HandlePrefix,
 		arg.AfterCreatedAt,
 		arg.AfterID,
 		arg.RowLimit,

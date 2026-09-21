@@ -7,15 +7,9 @@ import SpaceBetween from "@cloudscape-design/components/space-between";
 import StatusIndicator from "@cloudscape-design/components/status-indicator";
 import Table from "@cloudscape-design/components/table";
 import { request } from "./api.ts";
-import {
-  allPages,
-  Choice,
-  Failure,
-  Field,
-  Pager,
-  messageOf,
-} from "./controls.tsx";
-import type { Delegation, Identity, Page, Zone } from "./domain.ts";
+import { Choice, Failure, Field, Pager, messageOf } from "./controls.tsx";
+import type { Delegation, Page, Zone, Binding } from "./domain.ts";
+import { RemoteSelector, queryPath, usePage } from "./management-controls.tsx";
 interface Audit {
   id: string;
   occurred_at: string;
@@ -26,18 +20,6 @@ interface Audit {
   result: string;
   request_id: string;
   details: Record<string, unknown>;
-}
-interface Group {
-  id: string;
-  handle: string;
-  display_name: string | null;
-  enabled: boolean;
-}
-interface Binding {
-  id: string;
-  zone_id: string;
-  zone_name: string;
-  status: string;
 }
 export function Administration({
   section,
@@ -59,7 +41,17 @@ export function Administration({
     [busy, setBusy] = useState(false),
     [result, setResult] = useState(""),
     [action, setAction] = useState(""),
-    [filters, setFilters] = useState({ result: "", action: "" });
+    [actor, setActor] = useState(""),
+    [targetType, setTargetType] = useState(""),
+    [targetID, setTargetID] = useState(""),
+    [downloading, setDownloading] = useState(false),
+    [filters, setFilters] = useState({
+      result: "",
+      action: "",
+      actor_id: "",
+      target_type: "",
+      target_id: "",
+    });
   const audit = section === "Audit";
   async function load(signal?: AbortSignal) {
     setLoading(true);
@@ -140,6 +132,13 @@ export function Administration({
   return (
     <SpaceBetween size="l">
       <Failure error={error} />
+      {audit && downloading && (
+        <Alert type="info">
+          Download requested. Check your browser’s downloads for completion or
+          failure. An interrupted file is incomplete; start a new export
+          explicitly if needed.
+        </Alert>
+      )}
       {audit ? (
         <Table
           variant="full-page"
@@ -151,8 +150,21 @@ export function Administration({
           header={
             <Header
               variant="h1"
-              description="Observed outcomes of DNS and access-management operations."
-              actions={<Button onClick={() => load()}>Reload audit</Button>}
+              description="Observed outcomes of DNS and access-management operations. Export traverses live history; it is not a snapshot across pages."
+              actions={
+                <SpaceBetween direction="horizontal" size="xs">
+                  <Button onClick={() => load()}>Reload audit</Button>
+                  <Button
+                    href={queryPath(
+                      "/api/v1/dans/audit-events/export",
+                      filters,
+                    )}
+                    onClick={() => setDownloading(true)}
+                  >
+                    Download NDJSON
+                  </Button>
+                </SpaceBetween>
+              }
             >
               Audit
             </Header>
@@ -160,6 +172,17 @@ export function Administration({
           filter={
             <div className="filter-grid">
               <Field label="Action" value={action} onChange={setAction} />
+              <Field label="Actor ID" value={actor} onChange={setActor} />
+              <Field
+                label="Target type"
+                value={targetType}
+                onChange={setTargetType}
+              />
+              <Field
+                label="Target ID"
+                value={targetID}
+                onChange={setTargetID}
+              />
               <Choice
                 label="Result"
                 value={result}
@@ -177,7 +200,14 @@ export function Administration({
                 onClick={() => {
                   setCursor("");
                   setHistory([]);
-                  setFilters({ result, action });
+                  setFilters({
+                    result,
+                    action,
+                    actor_id: actor,
+                    target_type: targetType,
+                    target_id: targetID,
+                  });
+                  setDownloading(false);
                 }}
               >
                 Filter audit
@@ -381,9 +411,9 @@ function DelegationForm({
   done: () => void;
 }) {
   const [zones, setZones] = useState<Zone[]>([]),
-    [bindings, setBindings] = useState<Binding[]>([]),
-    [people, setPeople] = useState<{ value: string; label: string }[]>([]),
     [zone, setZone] = useState(""),
+    [bindingID, setBindingID] = useState(""),
+    [granteeKind, setGranteeKind] = useState("identity"),
     [grantee, setGrantee] = useState(""),
     [selectors, setSelectors] = useState<Delegation["selectors"]>([
       { kind: "exact", value: "" },
@@ -393,35 +423,14 @@ function DelegationForm({
     [loading, setLoading] = useState(true),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const bindings = usePage<Binding>("/dans/zone-bindings?status=active");
   useEffect(() => {
-    Promise.all([
-      request<Zone[]>("/servers/localhost/zones"),
-      allPages<Binding>("/dans/zone-bindings?status=active"),
-      allPages<Identity>("/dans/identities?enabled=true"),
-      allPages<Group>("/dans/groups?enabled=true"),
-    ])
-      .then(([zones, bindings, identities, groups]) => {
-        setZones(zones);
-        setBindings(bindings);
-        setPeople([
-          ...identities.map((item) => ({
-            value: "identity:" + item.id,
-            label:
-              (item.display_name || item.handle) + " (" + item.handle + ")",
-          })),
-          ...groups.map((item) => ({
-            value: "group:" + item.id,
-            label:
-              "Group: " +
-              (item.display_name || item.handle) +
-              " (" +
-              item.handle +
-              ")",
-          })),
-        ]);
-      })
+    const controller = new AbortController();
+    request<Zone[]>("/servers/localhost/zones", { signal: controller.signal })
+      .then(setZones)
       .catch((error) => setError(messageOf(error)))
       .finally(() => setLoading(false));
+    return () => controller.abort();
   }, []);
   async function save() {
     if (busy || loading) return;
@@ -432,22 +441,24 @@ function DelegationForm({
     setBusy(true);
     setError("");
     try {
-      let binding = bindings.find((item) => item.zone_id === zone);
+      let binding = bindingID
+        ? await request<Binding>(
+            "/dans/zone-bindings/" + encodeURIComponent(bindingID),
+          )
+        : undefined;
+      if (binding && binding.zone_id !== zone)
+        throw new Error("Select an active binding for the selected zone.");
       if (!binding) {
-        await request("/dans/zone-bindings", {
+        binding = await request<Binding>("/dans/zone-bindings", {
           method: "POST",
           body: JSON.stringify({ zone_id: zone }),
         });
-        binding = (
-          await allPages<Binding>("/dans/zone-bindings?status=active")
-        ).find((item) => item.zone_id === zone);
-        if (!binding)
+        if (!binding?.id)
           throw new Error(
             "Zone binding could not be confirmed. Reload before creating the delegation.",
           );
-        setBindings([...bindings, binding]);
+        setBindingID(binding.id);
       }
-      const [kind, id] = grantee.split(":");
       const list = (value: string) =>
         value.trim()
           ? value
@@ -459,7 +470,7 @@ function DelegationForm({
         method: "POST",
         body: JSON.stringify({
           zone_binding_id: binding.id,
-          [kind + "_id"]: id,
+          [granteeKind + "_id"]: grantee,
           selectors,
           record_types: list(types),
           change_kinds: list(kinds),
@@ -497,14 +508,55 @@ function DelegationForm({
         <Choice
           label="Zone"
           value={zone}
-          onChange={setZone}
+          onChange={(value) => {
+            setZone(value);
+            setBindingID(
+              bindings.items.find((item) => item.zone_id === value)?.id || "",
+            );
+          }}
           options={zones.map((item) => ({ value: item.id, label: item.name }))}
         />
+        <Failure error={bindings.error} />
         <Choice
+          label="Active binding (optional)"
+          value={bindingID}
+          onChange={(value) => {
+            setBindingID(value);
+            const selected = bindings.items.find((item) => item.id === value);
+            if (selected) setZone(selected.zone_id);
+          }}
+          options={bindings.items.map((item) => ({
+            value: item.id,
+            label: item.zone_name + " · " + item.id,
+          }))}
+        />
+        <div role="group" aria-label="Active binding pages">
+          {bindings.pagination}
+        </div>
+        <p>
+          If no binding is selected, submission explicitly ensures an eligible
+          binding for the selected zone before creating the delegation. A
+          retired lifetime requires recovery through Zone bindings.
+        </p>
+        <Choice
+          label="Grantee kind"
+          value={granteeKind}
+          onChange={(value) => {
+            setGranteeKind(value);
+            setGrantee("");
+          }}
+          options={[
+            { value: "identity", label: "Identity" },
+            { value: "group", label: "Group" },
+          ]}
+        />
+        <RemoteSelector
+          key={granteeKind}
+          kind={granteeKind === "identity" ? "identities" : "groups"}
           label="Grantee"
           value={grantee}
           onChange={setGrantee}
-          options={people}
+          enabledOnly
         />
         {selectors.map((selector, index) => (
           <div key={index} className="row-fields">

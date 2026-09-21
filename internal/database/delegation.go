@@ -227,6 +227,17 @@ func (s *Store) ListCurrentIdentityDelegations(ctx context.Context, actor Actor,
 	if err := requireActor(actor); err != nil {
 		return DelegationPage{}, err
 	}
+	return s.listIdentityDelegations(ctx, actor.IdentityID, options)
+}
+
+func (s *Store) ListIdentityDelegations(ctx context.Context, actor Actor, identityID string, options DelegationListOptions) (DelegationPage, error) {
+	if _, err := s.GetIdentity(ctx, actor, identityID); err != nil {
+		return DelegationPage{}, err
+	}
+	return s.listIdentityDelegations(ctx, identityID, options)
+}
+
+func (s *Store) listIdentityDelegations(ctx context.Context, identityID string, options DelegationListOptions) (DelegationPage, error) {
 	if options.ZoneBindingID != nil || options.GranteeID != nil || options.Active != nil {
 		return DelegationPage{}, ErrInvalid
 	}
@@ -234,7 +245,7 @@ func (s *Store) ListCurrentIdentityDelegations(ctx context.Context, actor Actor,
 	if err != nil {
 		return DelegationPage{}, ErrInvalid
 	}
-	params := ListEffectiveDelegationDetailsParams{IdentityID: actor.IdentityID, RowLimit: int32(limit + 1)}
+	params := ListEffectiveDelegationDetailsParams{IdentityID: identityID, RowLimit: int32(limit + 1)}
 	if options.After != nil {
 		if options.After.CreatedAt.IsZero() || identifier.ValidateUUID(options.After.ID) != nil {
 			return DelegationPage{}, ErrInvalid
@@ -438,4 +449,59 @@ func validUniqueChangeKinds(values []string) bool {
 		seen[value] = struct{}{}
 	}
 	return true
+}
+
+type RetainedAssignment struct {
+	DelegationDetails
+	IdentityEnabled bool
+	GroupEnabled    *bool
+	GroupHandle     *string
+	BindingStatus   string
+	Effective       bool
+}
+type RetainedAssignmentPage struct {
+	Items []RetainedAssignment
+	Next  *page.Key
+}
+
+func (s *Store) ListIdentityAssignments(ctx context.Context, actor Actor, identityID string, options DelegationListOptions) (RetainedAssignmentPage, error) {
+	if _, err := s.GetIdentity(ctx, actor, identityID); err != nil {
+		return RetainedAssignmentPage{}, err
+	}
+	if options.ZoneBindingID != nil || options.GranteeID != nil || options.Active != nil {
+		return RetainedAssignmentPage{}, ErrInvalid
+	}
+	limit, err := page.NormalizeLimit(options.Limit)
+	if err != nil {
+		return RetainedAssignmentPage{}, ErrInvalid
+	}
+	params := ListIdentityAssignmentDetailsParams{IdentityID: identityID, RowLimit: int32(limit + 1)}
+	if options.After != nil {
+		if options.After.CreatedAt.IsZero() || identifier.ValidateUUID(options.After.ID) != nil {
+			return RetainedAssignmentPage{}, ErrInvalid
+		}
+		params.AfterCreatedAt = pgtype.Timestamptz{Time: options.After.CreatedAt, Valid: true}
+		params.AfterID = options.After.ID
+	}
+	rows, err := s.queries.ListIdentityAssignmentDetails(ctx, params)
+	if err != nil {
+		return RetainedAssignmentPage{}, fmt.Errorf("list identity assignments: %w", err)
+	}
+	details := make([]DelegationDetails, len(rows))
+	for i, row := range rows {
+		details[i] = DelegationDetails{ID: row.ID, ZoneBindingID: row.ZoneBindingID, ZoneID: row.PowerDNSZoneID, ZoneName: row.ZoneName, GranteeKind: row.GranteeKind, GranteeID: row.GranteeID, CreatedAt: row.CreatedAt, RevokedAt: row.RevokedAt}
+	}
+	if err := loadDelegationChildren(ctx, s.queries, details); err != nil {
+		return RetainedAssignmentPage{}, err
+	}
+	result := RetainedAssignmentPage{Items: make([]RetainedAssignment, len(rows))}
+	for i, row := range rows {
+		result.Items[i] = RetainedAssignment{DelegationDetails: details[i], IdentityEnabled: row.IdentityEnabled, GroupEnabled: row.GroupEnabled, GroupHandle: row.GroupHandle, BindingStatus: row.BindingStatus, Effective: row.Effective}
+	}
+	if len(rows) > limit {
+		last := rows[limit-1]
+		result.Items = result.Items[:limit]
+		result.Next = &page.Key{CreatedAt: last.CreatedAt.Time, ID: last.ID}
+	}
+	return result, nil
 }

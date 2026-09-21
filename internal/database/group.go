@@ -20,10 +20,11 @@ type GroupPatch struct {
 }
 
 type GroupListOptions struct {
-	Limit   int
-	After   *page.Key
-	Enabled *bool
-	Handle  *string
+	Limit        int
+	After        *page.Key
+	Enabled      *bool
+	Handle       *string
+	HandlePrefix *string
 }
 
 type GroupPage struct {
@@ -83,10 +84,10 @@ func (s *Store) ListGroups(ctx context.Context, actor Actor, options GroupListOp
 	if err != nil {
 		return GroupPage{}, ErrInvalid
 	}
-	if options.Handle != nil && !validHandle(*options.Handle) {
+	if options.Handle != nil && !validHandle(*options.Handle) || options.HandlePrefix != nil && !validHandlePrefix(*options.HandlePrefix) {
 		return GroupPage{}, ErrInvalid
 	}
-	params := ListGroupsParams{Enabled: options.Enabled, Handle: options.Handle, RowLimit: int32(limit + 1)}
+	params := ListGroupsParams{Enabled: options.Enabled, Handle: options.Handle, HandlePrefix: options.HandlePrefix, RowLimit: int32(limit + 1)}
 	if options.After != nil {
 		if options.After.CreatedAt.IsZero() || identifier.ValidateUUID(options.After.ID) != nil {
 			return GroupPage{}, ErrInvalid

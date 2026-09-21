@@ -197,6 +197,66 @@ func (e RRsetBrowsePageState) Valid() bool {
 	}
 }
 
+// Defines values for RetainedAssignmentBindingStatus.
+const (
+	RetainedAssignmentBindingStatusActive  RetainedAssignmentBindingStatus = "active"
+	RetainedAssignmentBindingStatusRetired RetainedAssignmentBindingStatus = "retired"
+)
+
+// Valid indicates whether the value is a known member of the RetainedAssignmentBindingStatus enum.
+func (e RetainedAssignmentBindingStatus) Valid() bool {
+	switch e {
+	case RetainedAssignmentBindingStatusActive:
+		return true
+	case RetainedAssignmentBindingStatusRetired:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RetainedAssignmentChangeKinds.
+const (
+	RetainedAssignmentChangeKindsDELETE  RetainedAssignmentChangeKinds = "DELETE"
+	RetainedAssignmentChangeKindsEXTEND  RetainedAssignmentChangeKinds = "EXTEND"
+	RetainedAssignmentChangeKindsPRUNE   RetainedAssignmentChangeKinds = "PRUNE"
+	RetainedAssignmentChangeKindsREPLACE RetainedAssignmentChangeKinds = "REPLACE"
+)
+
+// Valid indicates whether the value is a known member of the RetainedAssignmentChangeKinds enum.
+func (e RetainedAssignmentChangeKinds) Valid() bool {
+	switch e {
+	case RetainedAssignmentChangeKindsDELETE:
+		return true
+	case RetainedAssignmentChangeKindsEXTEND:
+		return true
+	case RetainedAssignmentChangeKindsPRUNE:
+		return true
+	case RetainedAssignmentChangeKindsREPLACE:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RetainedAssignmentGranteeKind.
+const (
+	RetainedAssignmentGranteeKindGroup    RetainedAssignmentGranteeKind = "group"
+	RetainedAssignmentGranteeKindIdentity RetainedAssignmentGranteeKind = "identity"
+)
+
+// Valid indicates whether the value is a known member of the RetainedAssignmentGranteeKind enum.
+func (e RetainedAssignmentGranteeKind) Valid() bool {
+	switch e {
+	case RetainedAssignmentGranteeKindGroup:
+		return true
+	case RetainedAssignmentGranteeKindIdentity:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SearchResultCommentObjectType.
 const (
 	SearchResultCommentObjectTypeComment SearchResultCommentObjectType = "comment"
@@ -359,6 +419,60 @@ func (e ZoneKind) Valid() bool {
 	case Producer:
 		return true
 	case Slave:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ZoneBindingDeletionState.
+const (
+	Completed       ZoneBindingDeletionState = "completed"
+	ConfirmedAbsent ZoneBindingDeletionState = "confirmed_absent"
+	Failed          ZoneBindingDeletionState = "failed"
+	NoAttempt       ZoneBindingDeletionState = "no_attempt"
+	Pending         ZoneBindingDeletionState = "pending"
+	Unknown         ZoneBindingDeletionState = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the ZoneBindingDeletionState enum.
+func (e ZoneBindingDeletionState) Valid() bool {
+	switch e {
+	case Completed:
+		return true
+	case ConfirmedAbsent:
+		return true
+	case Failed:
+		return true
+	case NoAttempt:
+		return true
+	case Pending:
+		return true
+	case Unknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ZoneBindingRecoveryActions.
+const (
+	ConfirmAbsent ZoneBindingRecoveryActions = "confirm_absent"
+	Observe       ZoneBindingRecoveryActions = "observe"
+	Rebind        ZoneBindingRecoveryActions = "rebind"
+	RetryDelete   ZoneBindingRecoveryActions = "retry_delete"
+)
+
+// Valid indicates whether the value is a known member of the ZoneBindingRecoveryActions enum.
+func (e ZoneBindingRecoveryActions) Valid() bool {
+	switch e {
+	case ConfirmAbsent:
+		return true
+	case Observe:
+		return true
+	case Rebind:
+		return true
+	case RetryDelete:
 		return true
 	default:
 		return false
@@ -563,6 +677,11 @@ type Cryptokey struct {
 
 // CryptokeyKeytype defines model for Cryptokey.Keytype.
 type CryptokeyKeytype string
+
+// CurrentCredential defines model for CurrentCredential.
+type CurrentCredential struct {
+	TokenId ResourceID `json:"token_id"`
+}
 
 // Delegation defines model for Delegation.
 type Delegation struct {
@@ -788,6 +907,41 @@ type Record struct {
 
 // ResourceID defines model for ResourceID.
 type ResourceID = openapi_types.UUID
+
+// RetainedAssignment defines model for RetainedAssignment.
+type RetainedAssignment struct {
+	BindingStatus   RetainedAssignmentBindingStatus      `json:"binding_status"`
+	ChangeKinds     []RetainedAssignmentChangeKinds      `json:"change_kinds"`
+	CreatedAt       time.Time                            `json:"created_at"`
+	Effective       bool                                 `json:"effective"`
+	GranteeId       ResourceID                           `json:"grantee_id"`
+	GranteeKind     RetainedAssignmentGranteeKind        `json:"grantee_kind"`
+	GroupEnabled    nullable.Nullable[bool]              `json:"group_enabled"`
+	GroupHandle     nullable.Nullable[NullableString]    `json:"group_handle"`
+	Id              ResourceID                           `json:"id"`
+	IdentityEnabled bool                                 `json:"identity_enabled"`
+	RecordTypes     []string                             `json:"record_types"`
+	RevokedAt       nullable.Nullable[NullableTimestamp] `json:"revoked_at"`
+	Selectors       []Selector                           `json:"selectors"`
+	ZoneBindingId   ResourceID                           `json:"zone_binding_id"`
+	ZoneId          string                               `json:"zone_id"`
+	ZoneName        string                               `json:"zone_name"`
+}
+
+// RetainedAssignmentBindingStatus defines model for RetainedAssignment.BindingStatus.
+type RetainedAssignmentBindingStatus string
+
+// RetainedAssignmentChangeKinds defines model for RetainedAssignment.ChangeKinds.
+type RetainedAssignmentChangeKinds string
+
+// RetainedAssignmentGranteeKind defines model for RetainedAssignment.GranteeKind.
+type RetainedAssignmentGranteeKind string
+
+// RetainedAssignmentPage defines model for RetainedAssignmentPage.
+type RetainedAssignmentPage struct {
+	Items      []RetainedAssignment              `json:"items"`
+	NextCursor nullable.Nullable[NullableString] `json:"next_cursor"`
+}
 
 // RingStatisticItem defines model for RingStatisticItem.
 type RingStatisticItem struct {
@@ -1086,15 +1240,27 @@ type ZoneKind string
 
 // ZoneBinding defines model for ZoneBinding.
 type ZoneBinding struct {
-	CreatedAt  time.Time                            `json:"created_at"`
-	Generation int                                  `json:"generation"`
-	Id         ResourceID                           `json:"id"`
-	RetiredAt  nullable.Nullable[NullableTimestamp] `json:"retired_at"`
-	Status     ZoneBindingStatus                    `json:"status"`
-	Upstream   ZoneBindingUpstream                  `json:"upstream"`
-	ZoneId     string                               `json:"zone_id"`
-	ZoneName   string                               `json:"zone_name"`
+	CreatedAt time.Time `json:"created_at"`
+
+	// DeletionState Advisory reconciliation state, included on the binding detail read.
+	DeletionState *ZoneBindingDeletionState `json:"deletion_state,omitempty"`
+	Generation    int                       `json:"generation"`
+	Id            ResourceID                `json:"id"`
+
+	// RecoveryActions Advisory actions; mutations recheck current state and upstream observations.
+	RecoveryActions *[]ZoneBindingRecoveryActions        `json:"recovery_actions,omitempty"`
+	RetiredAt       nullable.Nullable[NullableTimestamp] `json:"retired_at"`
+	Status          ZoneBindingStatus                    `json:"status"`
+	Upstream        ZoneBindingUpstream                  `json:"upstream"`
+	ZoneId          string                               `json:"zone_id"`
+	ZoneName        string                               `json:"zone_name"`
 }
+
+// ZoneBindingDeletionState Advisory reconciliation state, included on the binding detail read.
+type ZoneBindingDeletionState string
+
+// ZoneBindingRecoveryActions defines model for ZoneBinding.RecoveryActions.
+type ZoneBindingRecoveryActions string
 
 // ZoneBindingStatus defines model for ZoneBinding.Status.
 type ZoneBindingStatus string
@@ -1135,6 +1301,9 @@ type DelegationID = ResourceID
 // GroupID defines model for GroupID.
 type GroupID = ResourceID
 
+// HandlePrefix defines model for HandlePrefix.
+type HandlePrefix = string
+
 // IdentityID defines model for IdentityID.
 type IdentityID = ResourceID
 
@@ -1173,6 +1342,15 @@ type ListAuditEventsParams struct {
 	Result     *string     `form:"result,omitempty" json:"result,omitempty"`
 }
 
+// ExportAuditEventsParams defines parameters for ExportAuditEvents.
+type ExportAuditEventsParams struct {
+	ActorId    *ResourceID `form:"actor_id,omitempty" json:"actor_id,omitempty"`
+	Action     *string     `form:"action,omitempty" json:"action,omitempty"`
+	TargetType *string     `form:"target_type,omitempty" json:"target_type,omitempty"`
+	TargetId   *string     `form:"target_id,omitempty" json:"target_id,omitempty"`
+	Result     *string     `form:"result,omitempty" json:"result,omitempty"`
+}
+
 // ListDelegationsParams defines parameters for ListDelegations.
 type ListDelegationsParams struct {
 	Limit         *Limit      `form:"limit,omitempty" json:"limit,omitempty"`
@@ -1184,30 +1362,57 @@ type ListDelegationsParams struct {
 
 // ListGroupsParams defines parameters for ListGroups.
 type ListGroupsParams struct {
-	Limit   *Limit  `form:"limit,omitempty" json:"limit,omitempty"`
-	Cursor  *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
-	Enabled *bool   `form:"enabled,omitempty" json:"enabled,omitempty"`
-	Handle  *Handle `form:"handle,omitempty" json:"handle,omitempty"`
+	// HandlePrefix Literal case-sensitive handle prefix, intersected with any exact handle filter.
+	HandlePrefix *HandlePrefix `form:"handle_prefix,omitempty" json:"handle_prefix,omitempty"`
+	Limit        *Limit        `form:"limit,omitempty" json:"limit,omitempty"`
+	Cursor       *Cursor       `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Enabled      *bool         `form:"enabled,omitempty" json:"enabled,omitempty"`
+	Handle       *Handle       `form:"handle,omitempty" json:"handle,omitempty"`
 }
 
 // ListGroupMembersParams defines parameters for ListGroupMembers.
 type ListGroupMembersParams struct {
-	Limit  *Limit  `form:"limit,omitempty" json:"limit,omitempty"`
-	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+	// HandlePrefix Literal case-sensitive handle prefix, intersected with any exact handle filter.
+	HandlePrefix *HandlePrefix `form:"handle_prefix,omitempty" json:"handle_prefix,omitempty"`
+	Limit        *Limit        `form:"limit,omitempty" json:"limit,omitempty"`
+	Cursor       *Cursor       `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
 // ListIdentitiesParams defines parameters for ListIdentities.
 type ListIdentitiesParams struct {
-	Limit    *Limit                    `form:"limit,omitempty" json:"limit,omitempty"`
-	Cursor   *Cursor                   `form:"cursor,omitempty" json:"cursor,omitempty"`
-	Kind     *ListIdentitiesParamsKind `form:"kind,omitempty" json:"kind,omitempty"`
-	Enabled  *bool                     `form:"enabled,omitempty" json:"enabled,omitempty"`
-	Operator *bool                     `form:"operator,omitempty" json:"operator,omitempty"`
-	Handle   *Handle                   `form:"handle,omitempty" json:"handle,omitempty"`
+	// HandlePrefix Literal case-sensitive handle prefix, intersected with any exact handle filter.
+	HandlePrefix *HandlePrefix             `form:"handle_prefix,omitempty" json:"handle_prefix,omitempty"`
+	Limit        *Limit                    `form:"limit,omitempty" json:"limit,omitempty"`
+	Cursor       *Cursor                   `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Kind         *ListIdentitiesParamsKind `form:"kind,omitempty" json:"kind,omitempty"`
+	Enabled      *bool                     `form:"enabled,omitempty" json:"enabled,omitempty"`
+	Operator     *bool                     `form:"operator,omitempty" json:"operator,omitempty"`
+	Handle       *Handle                   `form:"handle,omitempty" json:"handle,omitempty"`
 }
 
 // ListIdentitiesParamsKind defines parameters for ListIdentities.
 type ListIdentitiesParamsKind string
+
+// ListIdentityAssignmentsParams defines parameters for ListIdentityAssignments.
+type ListIdentityAssignmentsParams struct {
+	Limit  *Limit  `form:"limit,omitempty" json:"limit,omitempty"`
+	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListIdentityDelegationsParams defines parameters for ListIdentityDelegations.
+type ListIdentityDelegationsParams struct {
+	Limit  *Limit  `form:"limit,omitempty" json:"limit,omitempty"`
+	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListIdentityGroupsParams defines parameters for ListIdentityGroups.
+type ListIdentityGroupsParams struct {
+	Limit  *Limit  `form:"limit,omitempty" json:"limit,omitempty"`
+	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// HandlePrefix Literal case-sensitive handle prefix, intersected with any exact handle filter.
+	HandlePrefix *HandlePrefix `form:"handle_prefix,omitempty" json:"handle_prefix,omitempty"`
+}
 
 // ListIdentityTokensParams defines parameters for ListIdentityTokens.
 type ListIdentityTokensParams struct {
@@ -1223,8 +1428,10 @@ type ListCurrentIdentityDelegationsParams struct {
 
 // ListCurrentIdentityGroupsParams defines parameters for ListCurrentIdentityGroups.
 type ListCurrentIdentityGroupsParams struct {
-	Limit  *Limit  `form:"limit,omitempty" json:"limit,omitempty"`
-	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+	// HandlePrefix Literal case-sensitive handle prefix, intersected with any exact handle filter.
+	HandlePrefix *HandlePrefix `form:"handle_prefix,omitempty" json:"handle_prefix,omitempty"`
+	Limit        *Limit        `form:"limit,omitempty" json:"limit,omitempty"`
+	Cursor       *Cursor       `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
 // ListCurrentIdentityTokensParams defines parameters for ListCurrentIdentityTokens.
@@ -1754,6 +1961,11 @@ type ClientInterface interface {
 	// ListAuditEvents performs a GET /dans/audit-events (the `ListAuditEvents` operationId) request.
 	ListAuditEvents(ctx context.Context, params *ListAuditEventsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ExportAuditEvents performs a GET /dans/audit-events/export (the `ExportAuditEvents` operationId) request.
+	//
+	// Traverses live history in bounded pages, reauthenticating before each page. An interrupted transfer is incomplete; no cross-page snapshot is promised.
+	ExportAuditEvents(ctx context.Context, params *ExportAuditEventsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListDelegations performs a GET /dans/delegations (the `ListDelegations` operationId) request.
 	ListDelegations(ctx context.Context, params *ListDelegationsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1824,6 +2036,15 @@ type ClientInterface interface {
 	// Takes a body of the `application/json` content type.
 	UpdateIdentity(ctx context.Context, identityId IdentityID, body UpdateIdentityJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListIdentityAssignments performs a GET /dans/identities/{identity_id}/assignments (the `ListIdentityAssignments` operationId) request.
+	ListIdentityAssignments(ctx context.Context, identityId IdentityID, params *ListIdentityAssignmentsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListIdentityDelegations performs a GET /dans/identities/{identity_id}/delegations (the `ListIdentityDelegations` operationId) request.
+	ListIdentityDelegations(ctx context.Context, identityId IdentityID, params *ListIdentityDelegationsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListIdentityGroups performs a GET /dans/identities/{identity_id}/groups (the `ListIdentityGroups` operationId) request.
+	ListIdentityGroups(ctx context.Context, identityId IdentityID, params *ListIdentityGroupsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListIdentityTokens performs a GET /dans/identities/{identity_id}/tokens (the `ListIdentityTokens` operationId) request.
 	ListIdentityTokens(ctx context.Context, identityId IdentityID, params *ListIdentityTokensParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1840,6 +2061,9 @@ type ClientInterface interface {
 
 	// GetCurrentIdentity performs a GET /dans/me (the `GetCurrentIdentity` operationId) request.
 	GetCurrentIdentity(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetCurrentCredential performs a GET /dans/me/credential (the `GetCurrentCredential` operationId) request.
+	GetCurrentCredential(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListCurrentIdentityDelegations performs a GET /dans/me/delegations (the `ListCurrentIdentityDelegations` operationId) request.
 	ListCurrentIdentityDelegations(ctx context.Context, params *ListCurrentIdentityDelegationsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2323,6 +2547,21 @@ func (c *Client) ListAuditEvents(ctx context.Context, params *ListAuditEventsPar
 	return c.Client.Do(req)
 }
 
+// ExportAuditEvents performs a GET /dans/audit-events/export (the `ExportAuditEvents` operationId) request.
+//
+// Traverses live history in bounded pages, reauthenticating before each page. An interrupted transfer is incomplete; no cross-page snapshot is promised.
+func (c *Client) ExportAuditEvents(ctx context.Context, params *ExportAuditEventsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewExportAuditEventsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListDelegations performs a GET /dans/delegations (the `ListDelegations` operationId) request.
 func (c *Client) ListDelegations(ctx context.Context, params *ListDelegationsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListDelegationsRequest(c.Server, params)
@@ -2593,6 +2832,45 @@ func (c *Client) UpdateIdentity(ctx context.Context, identityId IdentityID, body
 	return c.Client.Do(req)
 }
 
+// ListIdentityAssignments performs a GET /dans/identities/{identity_id}/assignments (the `ListIdentityAssignments` operationId) request.
+func (c *Client) ListIdentityAssignments(ctx context.Context, identityId IdentityID, params *ListIdentityAssignmentsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListIdentityAssignmentsRequest(c.Server, identityId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListIdentityDelegations performs a GET /dans/identities/{identity_id}/delegations (the `ListIdentityDelegations` operationId) request.
+func (c *Client) ListIdentityDelegations(ctx context.Context, identityId IdentityID, params *ListIdentityDelegationsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListIdentityDelegationsRequest(c.Server, identityId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListIdentityGroups performs a GET /dans/identities/{identity_id}/groups (the `ListIdentityGroups` operationId) request.
+func (c *Client) ListIdentityGroups(ctx context.Context, identityId IdentityID, params *ListIdentityGroupsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListIdentityGroupsRequest(c.Server, identityId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListIdentityTokens performs a GET /dans/identities/{identity_id}/tokens (the `ListIdentityTokens` operationId) request.
 func (c *Client) ListIdentityTokens(ctx context.Context, identityId IdentityID, params *ListIdentityTokensParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListIdentityTokensRequest(c.Server, identityId, params)
@@ -2650,6 +2928,19 @@ func (c *Client) RevokeIdentityToken(ctx context.Context, identityId IdentityID,
 // GetCurrentIdentity performs a GET /dans/me (the `GetCurrentIdentity` operationId) request.
 func (c *Client) GetCurrentIdentity(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetCurrentIdentityRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetCurrentCredential performs a GET /dans/me/credential (the `GetCurrentCredential` operationId) request.
+func (c *Client) GetCurrentCredential(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetCurrentCredentialRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -4036,6 +4327,108 @@ func NewListAuditEventsRequest(server string, params *ListAuditEventsParams) (*h
 	return req, nil
 }
 
+// NewExportAuditEventsRequest constructs an http.Request for the ExportAuditEvents method
+func NewExportAuditEventsRequest(server string, params *ExportAuditEventsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/dans/audit-events/export")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.ActorId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "actor_id", *params.ActorId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Action != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "action", *params.Action, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.TargetType != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "target_type", *params.TargetType, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.TargetId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "target_id", *params.TargetId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Result != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "result", *params.Result, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListDelegationsRequest constructs an http.Request for the ListDelegations method
 func NewListDelegationsRequest(server string, params *ListDelegationsParams) (*http.Request, error) {
 	var err error
@@ -4274,6 +4667,18 @@ func NewListGroupsRequest(server string, params *ListGroupsParams) (*http.Reques
 		// per the OpenAPI spec (e.g. "color=blue,black,brown").
 		var rawQueryFragments []string
 
+		if params.HandlePrefix != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "handle_prefix", *params.HandlePrefix, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
 		if params.Limit != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
@@ -4492,6 +4897,18 @@ func NewListGroupMembersRequest(server string, groupId GroupID, params *ListGrou
 		// per the OpenAPI spec (e.g. "color=blue,black,brown").
 		var rawQueryFragments []string
 
+		if params.HandlePrefix != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "handle_prefix", *params.HandlePrefix, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
 		if params.Limit != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
@@ -4639,6 +5056,18 @@ func NewListIdentitiesRequest(server string, params *ListIdentitiesParams) (*htt
 		// styled parameters, preserving literal commas as delimiters
 		// per the OpenAPI spec (e.g. "color=blue,black,brown").
 		var rawQueryFragments []string
+
+		if params.HandlePrefix != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "handle_prefix", *params.HandlePrefix, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
 
 		if params.Limit != nil {
 
@@ -4847,6 +5276,237 @@ func NewUpdateIdentityRequestWithBody(server string, identityId IdentityID, cont
 	return req, nil
 }
 
+// NewListIdentityAssignmentsRequest constructs an http.Request for the ListIdentityAssignments method
+func NewListIdentityAssignmentsRequest(server string, identityId IdentityID, params *ListIdentityAssignmentsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "identity_id", identityId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/dans/identities/%s/assignments", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListIdentityDelegationsRequest constructs an http.Request for the ListIdentityDelegations method
+func NewListIdentityDelegationsRequest(server string, identityId IdentityID, params *ListIdentityDelegationsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "identity_id", identityId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/dans/identities/%s/delegations", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListIdentityGroupsRequest constructs an http.Request for the ListIdentityGroups method
+func NewListIdentityGroupsRequest(server string, identityId IdentityID, params *ListIdentityGroupsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "identity_id", identityId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/dans/identities/%s/groups", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.HandlePrefix != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "handle_prefix", *params.HandlePrefix, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListIdentityTokensRequest constructs an http.Request for the ListIdentityTokens method
 func NewListIdentityTokensRequest(server string, identityId IdentityID, params *ListIdentityTokensParams) (*http.Request, error) {
 	var err error
@@ -5035,6 +5695,33 @@ func NewGetCurrentIdentityRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewGetCurrentCredentialRequest constructs an http.Request for the GetCurrentCredential method
+func NewGetCurrentCredentialRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/dans/me/credential")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListCurrentIdentityDelegationsRequest constructs an http.Request for the ListCurrentIdentityDelegations method
 func NewListCurrentIdentityDelegationsRequest(server string, params *ListCurrentIdentityDelegationsParams) (*http.Request, error) {
 	var err error
@@ -5128,6 +5815,18 @@ func NewListCurrentIdentityGroupsRequest(server string, params *ListCurrentIdent
 		// styled parameters, preserving literal commas as delimiters
 		// per the OpenAPI spec (e.g. "color=blue,black,brown").
 		var rawQueryFragments []string
+
+		if params.HandlePrefix != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "handle_prefix", *params.HandlePrefix, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
 
 		if params.Limit != nil {
 
@@ -8046,6 +8745,13 @@ type ClientWithResponsesInterface interface {
 	// Returns a wrapper object for the known response body format(s).
 	ListAuditEventsWithResponse(ctx context.Context, params *ListAuditEventsParams, reqEditors ...RequestEditorFn) (*ListAuditEventsResponse, error)
 
+	// ExportAuditEventsWithResponse performs a GET /dans/audit-events/export (the `ExportAuditEvents` operationId) request.
+	//
+	// Traverses live history in bounded pages, reauthenticating before each page. An interrupted transfer is incomplete; no cross-page snapshot is promised.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	ExportAuditEventsWithResponse(ctx context.Context, params *ExportAuditEventsParams, reqEditors ...RequestEditorFn) (*ExportAuditEventsResponse, error)
+
 	// ListDelegationsWithResponse performs a GET /dans/delegations (the `ListDelegations` operationId) request.
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -8146,6 +8852,21 @@ type ClientWithResponsesInterface interface {
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	UpdateIdentityWithResponse(ctx context.Context, identityId IdentityID, body UpdateIdentityJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateIdentityResponse, error)
 
+	// ListIdentityAssignmentsWithResponse performs a GET /dans/identities/{identity_id}/assignments (the `ListIdentityAssignments` operationId) request.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	ListIdentityAssignmentsWithResponse(ctx context.Context, identityId IdentityID, params *ListIdentityAssignmentsParams, reqEditors ...RequestEditorFn) (*ListIdentityAssignmentsResponse, error)
+
+	// ListIdentityDelegationsWithResponse performs a GET /dans/identities/{identity_id}/delegations (the `ListIdentityDelegations` operationId) request.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	ListIdentityDelegationsWithResponse(ctx context.Context, identityId IdentityID, params *ListIdentityDelegationsParams, reqEditors ...RequestEditorFn) (*ListIdentityDelegationsResponse, error)
+
+	// ListIdentityGroupsWithResponse performs a GET /dans/identities/{identity_id}/groups (the `ListIdentityGroups` operationId) request.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	ListIdentityGroupsWithResponse(ctx context.Context, identityId IdentityID, params *ListIdentityGroupsParams, reqEditors ...RequestEditorFn) (*ListIdentityGroupsResponse, error)
+
 	// ListIdentityTokensWithResponse performs a GET /dans/identities/{identity_id}/tokens (the `ListIdentityTokens` operationId) request.
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -8170,6 +8891,11 @@ type ClientWithResponsesInterface interface {
 	//
 	// Returns a wrapper object for the known response body format(s).
 	GetCurrentIdentityWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetCurrentIdentityResponse, error)
+
+	// GetCurrentCredentialWithResponse performs a GET /dans/me/credential (the `GetCurrentCredential` operationId) request.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	GetCurrentCredentialWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetCurrentCredentialResponse, error)
 
 	// ListCurrentIdentityDelegationsWithResponse performs a GET /dans/me/delegations (the `ListCurrentIdentityDelegations` operationId) request.
 	//
@@ -8813,6 +9539,54 @@ func (r ListAuditEventsResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ListAuditEventsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// ExportAuditEventsResponse200Headers the declared response headers of an HTTP 200 response for ExportAuditEvents
+type ExportAuditEventsResponse200Headers struct {
+	ContentDisposition *string
+}
+
+type ExportAuditEventsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *DansError
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *ExportAuditEventsResponse200Headers
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ExportAuditEventsResponse) GetJSONDefault() *DansError {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ExportAuditEventsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ExportAuditEventsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ExportAuditEventsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ExportAuditEventsResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -9539,6 +10313,150 @@ func (r UpdateIdentityResponse) ContentType() string {
 	return ""
 }
 
+type ListIdentityAssignmentsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *RetainedAssignmentPage
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *DansError
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListIdentityAssignmentsResponse) GetJSON200() *RetainedAssignmentPage {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListIdentityAssignmentsResponse) GetJSONDefault() *DansError {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListIdentityAssignmentsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListIdentityAssignmentsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListIdentityAssignmentsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListIdentityAssignmentsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListIdentityDelegationsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *SelfDelegationPage
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *DansError
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListIdentityDelegationsResponse) GetJSON200() *SelfDelegationPage {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListIdentityDelegationsResponse) GetJSONDefault() *DansError {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListIdentityDelegationsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListIdentityDelegationsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListIdentityDelegationsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListIdentityDelegationsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListIdentityGroupsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *GroupPage
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *DansError
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListIdentityGroupsResponse) GetJSON200() *GroupPage {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListIdentityGroupsResponse) GetJSONDefault() *DansError {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListIdentityGroupsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListIdentityGroupsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListIdentityGroupsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListIdentityGroupsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListIdentityTokensResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -9725,6 +10643,54 @@ func (r GetCurrentIdentityResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetCurrentIdentityResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetCurrentCredentialResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *CurrentCredential
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *DansError
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetCurrentCredentialResponse) GetJSON200() *CurrentCredential {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetCurrentCredentialResponse) GetJSONDefault() *DansError {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetCurrentCredentialResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetCurrentCredentialResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetCurrentCredentialResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetCurrentCredentialResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -12578,6 +13544,19 @@ func (c *ClientWithResponses) ListAuditEventsWithResponse(ctx context.Context, p
 	return ParseListAuditEventsResponse(rsp)
 }
 
+// ExportAuditEventsWithResponse performs a GET /dans/audit-events/export (the `ExportAuditEvents` operationId) request.
+//
+// Traverses live history in bounded pages, reauthenticating before each page. An interrupted transfer is incomplete; no cross-page snapshot is promised.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) ExportAuditEventsWithResponse(ctx context.Context, params *ExportAuditEventsParams, reqEditors ...RequestEditorFn) (*ExportAuditEventsResponse, error) {
+	rsp, err := c.ExportAuditEvents(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseExportAuditEventsResponse(rsp)
+}
+
 // ListDelegationsWithResponse performs a GET /dans/delegations (the `ListDelegations` operationId) request.
 //
 // Returns a wrapper object for the known response body format(s).
@@ -12798,6 +13777,39 @@ func (c *ClientWithResponses) UpdateIdentityWithResponse(ctx context.Context, id
 	return ParseUpdateIdentityResponse(rsp)
 }
 
+// ListIdentityAssignmentsWithResponse performs a GET /dans/identities/{identity_id}/assignments (the `ListIdentityAssignments` operationId) request.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) ListIdentityAssignmentsWithResponse(ctx context.Context, identityId IdentityID, params *ListIdentityAssignmentsParams, reqEditors ...RequestEditorFn) (*ListIdentityAssignmentsResponse, error) {
+	rsp, err := c.ListIdentityAssignments(ctx, identityId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListIdentityAssignmentsResponse(rsp)
+}
+
+// ListIdentityDelegationsWithResponse performs a GET /dans/identities/{identity_id}/delegations (the `ListIdentityDelegations` operationId) request.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) ListIdentityDelegationsWithResponse(ctx context.Context, identityId IdentityID, params *ListIdentityDelegationsParams, reqEditors ...RequestEditorFn) (*ListIdentityDelegationsResponse, error) {
+	rsp, err := c.ListIdentityDelegations(ctx, identityId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListIdentityDelegationsResponse(rsp)
+}
+
+// ListIdentityGroupsWithResponse performs a GET /dans/identities/{identity_id}/groups (the `ListIdentityGroups` operationId) request.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) ListIdentityGroupsWithResponse(ctx context.Context, identityId IdentityID, params *ListIdentityGroupsParams, reqEditors ...RequestEditorFn) (*ListIdentityGroupsResponse, error) {
+	rsp, err := c.ListIdentityGroups(ctx, identityId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListIdentityGroupsResponse(rsp)
+}
+
 // ListIdentityTokensWithResponse performs a GET /dans/identities/{identity_id}/tokens (the `ListIdentityTokens` operationId) request.
 //
 // Returns a wrapper object for the known response body format(s).
@@ -12851,6 +13863,17 @@ func (c *ClientWithResponses) GetCurrentIdentityWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseGetCurrentIdentityResponse(rsp)
+}
+
+// GetCurrentCredentialWithResponse performs a GET /dans/me/credential (the `GetCurrentCredential` operationId) request.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) GetCurrentCredentialWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetCurrentCredentialResponse, error) {
+	rsp, err := c.GetCurrentCredential(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetCurrentCredentialResponse(rsp)
 }
 
 // ListCurrentIdentityDelegationsWithResponse performs a GET /dans/me/delegations (the `ListCurrentIdentityDelegations` operationId) request.
@@ -13932,6 +14955,45 @@ func ParseListAuditEventsResponse(rsp *http.Response) (*ListAuditEventsResponse,
 	return response, nil
 }
 
+// ParseExportAuditEventsResponse parses an HTTP response from a ExportAuditEventsWithResponse call
+func ParseExportAuditEventsResponse(rsp *http.Response) (*ExportAuditEventsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ExportAuditEventsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest DansError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers ExportAuditEventsResponse200Headers
+		if values := rsp.Header.Values("Content-Disposition"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Content-Disposition", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ContentDisposition = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
 // ParseListDelegationsResponse parses an HTTP response from a ListDelegationsWithResponse call
 func ParseListDelegationsResponse(rsp *http.Response) (*ListDelegationsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -14454,6 +15516,105 @@ func ParseUpdateIdentityResponse(rsp *http.Response) (*UpdateIdentityResponse, e
 	return response, nil
 }
 
+// ParseListIdentityAssignmentsResponse parses an HTTP response from a ListIdentityAssignmentsWithResponse call
+func ParseListIdentityAssignmentsResponse(rsp *http.Response) (*ListIdentityAssignmentsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListIdentityAssignmentsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RetainedAssignmentPage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest DansError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListIdentityDelegationsResponse parses an HTTP response from a ListIdentityDelegationsWithResponse call
+func ParseListIdentityDelegationsResponse(rsp *http.Response) (*ListIdentityDelegationsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListIdentityDelegationsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SelfDelegationPage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest DansError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListIdentityGroupsResponse parses an HTTP response from a ListIdentityGroupsWithResponse call
+func ParseListIdentityGroupsResponse(rsp *http.Response) (*ListIdentityGroupsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListIdentityGroupsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest GroupPage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest DansError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListIdentityTokensResponse parses an HTTP response from a ListIdentityTokensWithResponse call
 func ParseListIdentityTokensResponse(rsp *http.Response) (*ListIdentityTokensResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -14578,6 +15739,39 @@ func ParseGetCurrentIdentityResponse(rsp *http.Response) (*GetCurrentIdentityRes
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest Identity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest DansError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetCurrentCredentialResponse parses an HTTP response from a GetCurrentCredentialWithResponse call
+func ParseGetCurrentCredentialResponse(rsp *http.Response) (*GetCurrentCredentialResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetCurrentCredentialResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CurrentCredential
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -16593,6 +17787,9 @@ type ServerInterface interface {
 	// (GET /dans/audit-events)
 	ListAuditEvents(w http.ResponseWriter, r *http.Request, params ListAuditEventsParams)
 
+	// (GET /dans/audit-events/export)
+	ExportAuditEvents(w http.ResponseWriter, r *http.Request, params ExportAuditEventsParams)
+
 	// (GET /dans/delegations)
 	ListDelegations(w http.ResponseWriter, r *http.Request, params ListDelegationsParams)
 
@@ -16638,6 +17835,15 @@ type ServerInterface interface {
 	// (PATCH /dans/identities/{identity_id})
 	UpdateIdentity(w http.ResponseWriter, r *http.Request, identityId IdentityID)
 
+	// (GET /dans/identities/{identity_id}/assignments)
+	ListIdentityAssignments(w http.ResponseWriter, r *http.Request, identityId IdentityID, params ListIdentityAssignmentsParams)
+
+	// (GET /dans/identities/{identity_id}/delegations)
+	ListIdentityDelegations(w http.ResponseWriter, r *http.Request, identityId IdentityID, params ListIdentityDelegationsParams)
+
+	// (GET /dans/identities/{identity_id}/groups)
+	ListIdentityGroups(w http.ResponseWriter, r *http.Request, identityId IdentityID, params ListIdentityGroupsParams)
+
 	// (GET /dans/identities/{identity_id}/tokens)
 	ListIdentityTokens(w http.ResponseWriter, r *http.Request, identityId IdentityID, params ListIdentityTokensParams)
 
@@ -16649,6 +17855,9 @@ type ServerInterface interface {
 
 	// (GET /dans/me)
 	GetCurrentIdentity(w http.ResponseWriter, r *http.Request)
+
+	// (GET /dans/me/credential)
+	GetCurrentCredential(w http.ResponseWriter, r *http.Request)
 
 	// (GET /dans/me/delegations)
 	ListCurrentIdentityDelegations(w http.ResponseWriter, r *http.Request, params ListCurrentIdentityDelegationsParams)
@@ -16968,6 +18177,91 @@ func (siw *ServerInterfaceWrapper) ListAuditEvents(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// ExportAuditEvents operation middleware
+func (siw *ServerInterfaceWrapper) ExportAuditEvents(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ExportAuditEventsParams
+
+	// ------------- Optional query parameter "actor_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "actor_id", r.URL.Query(), &params.ActorId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "actor_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "actor_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "action" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "action", r.URL.Query(), &params.Action, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "action"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "action", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "target_type" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "target_type", r.URL.Query(), &params.TargetType, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "target_type"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "target_type", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "target_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "target_id", r.URL.Query(), &params.TargetId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "target_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "target_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "result" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "result", r.URL.Query(), &params.Result, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "result"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "result", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ExportAuditEvents(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListDelegations operation middleware
 func (siw *ServerInterfaceWrapper) ListDelegations(w http.ResponseWriter, r *http.Request) {
 
@@ -17128,6 +18422,19 @@ func (siw *ServerInterfaceWrapper) ListGroups(w http.ResponseWriter, r *http.Req
 	// Parameter object where we will unmarshal all parameters from the context
 	var params ListGroupsParams
 
+	// ------------- Optional query parameter "handle_prefix" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "handle_prefix", r.URL.Query(), &params.HandlePrefix, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "handle_prefix"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "handle_prefix", Err: err})
+		}
+		return
+	}
+
 	// ------------- Optional query parameter "limit" -------------
 
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
@@ -17275,6 +18582,19 @@ func (siw *ServerInterfaceWrapper) ListGroupMembers(w http.ResponseWriter, r *ht
 	// Parameter object where we will unmarshal all parameters from the context
 	var params ListGroupMembersParams
 
+	// ------------- Optional query parameter "handle_prefix" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "handle_prefix", r.URL.Query(), &params.HandlePrefix, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "handle_prefix"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "handle_prefix", Err: err})
+		}
+		return
+	}
+
 	// ------------- Optional query parameter "limit" -------------
 
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
@@ -17390,6 +18710,19 @@ func (siw *ServerInterfaceWrapper) ListIdentities(w http.ResponseWriter, r *http
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params ListIdentitiesParams
+
+	// ------------- Optional query parameter "handle_prefix" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "handle_prefix", r.URL.Query(), &params.HandlePrefix, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "handle_prefix"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "handle_prefix", Err: err})
+		}
+		return
+	}
 
 	// ------------- Optional query parameter "limit" -------------
 
@@ -17546,6 +18879,184 @@ func (siw *ServerInterfaceWrapper) UpdateIdentity(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// ListIdentityAssignments operation middleware
+func (siw *ServerInterfaceWrapper) ListIdentityAssignments(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "identity_id" -------------
+	var identityId IdentityID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "identity_id", r.PathValue("identity_id"), &identityId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "identity_id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListIdentityAssignmentsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListIdentityAssignments(w, r, identityId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListIdentityDelegations operation middleware
+func (siw *ServerInterfaceWrapper) ListIdentityDelegations(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "identity_id" -------------
+	var identityId IdentityID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "identity_id", r.PathValue("identity_id"), &identityId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "identity_id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListIdentityDelegationsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListIdentityDelegations(w, r, identityId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListIdentityGroups operation middleware
+func (siw *ServerInterfaceWrapper) ListIdentityGroups(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "identity_id" -------------
+	var identityId IdentityID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "identity_id", r.PathValue("identity_id"), &identityId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "identity_id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListIdentityGroupsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "handle_prefix" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "handle_prefix", r.URL.Query(), &params.HandlePrefix, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "handle_prefix"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "handle_prefix", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListIdentityGroups(w, r, identityId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListIdentityTokens operation middleware
 func (siw *ServerInterfaceWrapper) ListIdentityTokens(w http.ResponseWriter, r *http.Request) {
 
@@ -17676,6 +19187,20 @@ func (siw *ServerInterfaceWrapper) GetCurrentIdentity(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// GetCurrentCredential operation middleware
+func (siw *ServerInterfaceWrapper) GetCurrentCredential(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCurrentCredential(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListCurrentIdentityDelegations operation middleware
 func (siw *ServerInterfaceWrapper) ListCurrentIdentityDelegations(w http.ResponseWriter, r *http.Request) {
 
@@ -17730,6 +19255,19 @@ func (siw *ServerInterfaceWrapper) ListCurrentIdentityGroups(w http.ResponseWrit
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params ListCurrentIdentityGroupsParams
+
+	// ------------- Optional query parameter "handle_prefix" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "handle_prefix", r.URL.Query(), &params.HandlePrefix, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "handle_prefix"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "handle_prefix", Err: err})
+		}
+		return
+	}
 
 	// ------------- Optional query parameter "limit" -------------
 
@@ -19996,6 +21534,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/docs", wrapper.GetAPIDocument)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/dans/audit-events", wrapper.ListAuditEvents)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/dans/audit-events/export", wrapper.ExportAuditEvents)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/dans/delegations", wrapper.ListDelegations)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/dans/delegations", wrapper.CreateDelegation)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/dans/delegations/{delegation_id}", wrapper.RevokeDelegation)
@@ -20011,10 +21550,14 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/dans/identities", wrapper.CreateIdentity)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/dans/identities/{identity_id}", wrapper.GetIdentity)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/dans/identities/{identity_id}", wrapper.UpdateIdentity)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/dans/identities/{identity_id}/assignments", wrapper.ListIdentityAssignments)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/dans/identities/{identity_id}/delegations", wrapper.ListIdentityDelegations)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/dans/identities/{identity_id}/groups", wrapper.ListIdentityGroups)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/dans/identities/{identity_id}/tokens", wrapper.ListIdentityTokens)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/dans/identities/{identity_id}/tokens", wrapper.CreateIdentityToken)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/dans/identities/{identity_id}/tokens/{token_id}", wrapper.RevokeIdentityToken)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/dans/me", wrapper.GetCurrentIdentity)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/dans/me/credential", wrapper.GetCurrentCredential)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/dans/me/delegations", wrapper.ListCurrentIdentityDelegations)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/dans/me/groups", wrapper.ListCurrentIdentityGroups)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/dans/me/tokens", wrapper.ListCurrentIdentityTokens)
@@ -20149,6 +21692,82 @@ type ListAuditEventsdefaultJSONResponse struct {
 }
 
 func (response ListAuditEventsdefaultJSONResponse) VisitListAuditEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ExportAuditEventsRequestObject struct {
+	Params ExportAuditEventsParams
+}
+
+type ExportAuditEventsResponseObject interface {
+	VisitExportAuditEventsResponse(w http.ResponseWriter) error
+}
+
+type ExportAuditEvents200ResponseHeaders struct {
+	ContentDisposition *string
+}
+
+type ExportAuditEvents200ApplicationxNdjsonResponse struct {
+	Body          io.Reader
+	Headers       ExportAuditEvents200ResponseHeaders
+	ContentLength int64
+}
+
+func (response ExportAuditEvents200ApplicationxNdjsonResponse) VisitExportAuditEventsResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "application/x-ndjson")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	if response.Headers.ContentDisposition != nil {
+		w.Header().Set("Content-Disposition", fmt.Sprint(*response.Headers.ContentDisposition))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		// If w doesn't support flushing, fall back to io.Copy.
+		_, err := io.Copy(w, response.Body)
+		return err
+	}
+	// text/event-stream messages are typically small; use a
+	// modest buffer and flush after each chunk so clients see
+	// events immediately instead of waiting on OS buffering.
+	buf := make([]byte, 4096)
+	for {
+		n, err := response.Body.Read(buf)
+		if n > 0 {
+			if _, writeErr := w.Write(buf[:n]); writeErr != nil {
+				return writeErr
+			}
+			flusher.Flush()
+		}
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return err
+		}
+	}
+}
+
+type ExportAuditEventsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ExportAuditEventsdefaultJSONResponse) VisitExportAuditEventsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -20762,6 +22381,126 @@ func (response UpdateIdentitydefaultJSONResponse) VisitUpdateIdentityResponse(w 
 	return err
 }
 
+type ListIdentityAssignmentsRequestObject struct {
+	IdentityId IdentityID `json:"identity_id"`
+	Params     ListIdentityAssignmentsParams
+}
+
+type ListIdentityAssignmentsResponseObject interface {
+	VisitListIdentityAssignmentsResponse(w http.ResponseWriter) error
+}
+
+type ListIdentityAssignments200JSONResponse RetainedAssignmentPage
+
+func (response ListIdentityAssignments200JSONResponse) VisitListIdentityAssignmentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListIdentityAssignmentsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListIdentityAssignmentsdefaultJSONResponse) VisitListIdentityAssignmentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListIdentityDelegationsRequestObject struct {
+	IdentityId IdentityID `json:"identity_id"`
+	Params     ListIdentityDelegationsParams
+}
+
+type ListIdentityDelegationsResponseObject interface {
+	VisitListIdentityDelegationsResponse(w http.ResponseWriter) error
+}
+
+type ListIdentityDelegations200JSONResponse SelfDelegationPage
+
+func (response ListIdentityDelegations200JSONResponse) VisitListIdentityDelegationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListIdentityDelegationsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListIdentityDelegationsdefaultJSONResponse) VisitListIdentityDelegationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListIdentityGroupsRequestObject struct {
+	IdentityId IdentityID `json:"identity_id"`
+	Params     ListIdentityGroupsParams
+}
+
+type ListIdentityGroupsResponseObject interface {
+	VisitListIdentityGroupsResponse(w http.ResponseWriter) error
+}
+
+type ListIdentityGroups200JSONResponse GroupPage
+
+func (response ListIdentityGroups200JSONResponse) VisitListIdentityGroupsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListIdentityGroupsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListIdentityGroupsdefaultJSONResponse) VisitListIdentityGroupsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListIdentityTokensRequestObject struct {
 	IdentityId IdentityID `json:"identity_id"`
 	Params     ListIdentityTokensParams
@@ -20913,6 +22652,44 @@ type GetCurrentIdentitydefaultJSONResponse struct {
 }
 
 func (response GetCurrentIdentitydefaultJSONResponse) VisitGetCurrentIdentityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCurrentCredentialRequestObject struct {
+}
+
+type GetCurrentCredentialResponseObject interface {
+	VisitGetCurrentCredentialResponse(w http.ResponseWriter) error
+}
+
+type GetCurrentCredential200JSONResponse CurrentCredential
+
+func (response GetCurrentCredential200JSONResponse) VisitGetCurrentCredentialResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCurrentCredentialdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetCurrentCredentialdefaultJSONResponse) VisitGetCurrentCredentialResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -23313,6 +25090,9 @@ type StrictServerInterface interface {
 	// (GET /dans/audit-events)
 	ListAuditEvents(ctx context.Context, request ListAuditEventsRequestObject) (ListAuditEventsResponseObject, error)
 
+	// (GET /dans/audit-events/export)
+	ExportAuditEvents(ctx context.Context, request ExportAuditEventsRequestObject) (ExportAuditEventsResponseObject, error)
+
 	// (GET /dans/delegations)
 	ListDelegations(ctx context.Context, request ListDelegationsRequestObject) (ListDelegationsResponseObject, error)
 
@@ -23358,6 +25138,15 @@ type StrictServerInterface interface {
 	// (PATCH /dans/identities/{identity_id})
 	UpdateIdentity(ctx context.Context, request UpdateIdentityRequestObject) (UpdateIdentityResponseObject, error)
 
+	// (GET /dans/identities/{identity_id}/assignments)
+	ListIdentityAssignments(ctx context.Context, request ListIdentityAssignmentsRequestObject) (ListIdentityAssignmentsResponseObject, error)
+
+	// (GET /dans/identities/{identity_id}/delegations)
+	ListIdentityDelegations(ctx context.Context, request ListIdentityDelegationsRequestObject) (ListIdentityDelegationsResponseObject, error)
+
+	// (GET /dans/identities/{identity_id}/groups)
+	ListIdentityGroups(ctx context.Context, request ListIdentityGroupsRequestObject) (ListIdentityGroupsResponseObject, error)
+
 	// (GET /dans/identities/{identity_id}/tokens)
 	ListIdentityTokens(ctx context.Context, request ListIdentityTokensRequestObject) (ListIdentityTokensResponseObject, error)
 
@@ -23369,6 +25158,9 @@ type StrictServerInterface interface {
 
 	// (GET /dans/me)
 	GetCurrentIdentity(ctx context.Context, request GetCurrentIdentityRequestObject) (GetCurrentIdentityResponseObject, error)
+
+	// (GET /dans/me/credential)
+	GetCurrentCredential(ctx context.Context, request GetCurrentCredentialRequestObject) (GetCurrentCredentialResponseObject, error)
 
 	// (GET /dans/me/delegations)
 	ListCurrentIdentityDelegations(ctx context.Context, request ListCurrentIdentityDelegationsRequestObject) (ListCurrentIdentityDelegationsResponseObject, error)
@@ -23636,6 +25428,32 @@ func (sh *strictHandler) ListAuditEvents(w http.ResponseWriter, r *http.Request,
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListAuditEventsResponseObject); ok {
 		if err := validResponse.VisitListAuditEventsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ExportAuditEvents operation middleware
+func (sh *strictHandler) ExportAuditEvents(w http.ResponseWriter, r *http.Request, params ExportAuditEventsParams) {
+	var request ExportAuditEventsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ExportAuditEvents(ctx, request.(ExportAuditEventsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ExportAuditEvents")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ExportAuditEventsResponseObject); ok {
+		if err := validResponse.VisitExportAuditEventsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -24065,6 +25883,87 @@ func (sh *strictHandler) UpdateIdentity(w http.ResponseWriter, r *http.Request, 
 	}
 }
 
+// ListIdentityAssignments operation middleware
+func (sh *strictHandler) ListIdentityAssignments(w http.ResponseWriter, r *http.Request, identityId IdentityID, params ListIdentityAssignmentsParams) {
+	var request ListIdentityAssignmentsRequestObject
+
+	request.IdentityId = identityId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListIdentityAssignments(ctx, request.(ListIdentityAssignmentsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListIdentityAssignments")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListIdentityAssignmentsResponseObject); ok {
+		if err := validResponse.VisitListIdentityAssignmentsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListIdentityDelegations operation middleware
+func (sh *strictHandler) ListIdentityDelegations(w http.ResponseWriter, r *http.Request, identityId IdentityID, params ListIdentityDelegationsParams) {
+	var request ListIdentityDelegationsRequestObject
+
+	request.IdentityId = identityId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListIdentityDelegations(ctx, request.(ListIdentityDelegationsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListIdentityDelegations")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListIdentityDelegationsResponseObject); ok {
+		if err := validResponse.VisitListIdentityDelegationsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListIdentityGroups operation middleware
+func (sh *strictHandler) ListIdentityGroups(w http.ResponseWriter, r *http.Request, identityId IdentityID, params ListIdentityGroupsParams) {
+	var request ListIdentityGroupsRequestObject
+
+	request.IdentityId = identityId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListIdentityGroups(ctx, request.(ListIdentityGroupsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListIdentityGroups")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListIdentityGroupsResponseObject); ok {
+		if err := validResponse.VisitListIdentityGroupsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListIdentityTokens operation middleware
 func (sh *strictHandler) ListIdentityTokens(w http.ResponseWriter, r *http.Request, identityId IdentityID, params ListIdentityTokensParams) {
 	var request ListIdentityTokensRequestObject
@@ -24169,6 +26068,30 @@ func (sh *strictHandler) GetCurrentIdentity(w http.ResponseWriter, r *http.Reque
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetCurrentIdentityResponseObject); ok {
 		if err := validResponse.VisitGetCurrentIdentityResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetCurrentCredential operation middleware
+func (sh *strictHandler) GetCurrentCredential(w http.ResponseWriter, r *http.Request) {
+	var request GetCurrentCredentialRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetCurrentCredential(ctx, request.(GetCurrentCredentialRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetCurrentCredential")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetCurrentCredentialResponseObject); ok {
+		if err := validResponse.VisitGetCurrentCredentialResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -25910,184 +27833,196 @@ func (sh *strictHandler) RectifyZone(w http.ResponseWriter, r *http.Request, ser
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"3U0faMwnV0+1Xv7/AwAA//8=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

@@ -24,7 +24,7 @@ func (s *Store) ListGroupMembers(ctx context.Context, actor Actor, groupID strin
 	if err := requireOperator(actor); err != nil {
 		return IdentityPage{}, err
 	}
-	if identifier.ValidateUUID(groupID) != nil || options.Kind != nil || options.Enabled != nil || options.Operator != nil || options.Handle != nil {
+	if identifier.ValidateUUID(groupID) != nil || options.Kind != nil || options.Enabled != nil || options.Operator != nil || options.Handle != nil || options.HandlePrefix != nil && !validHandlePrefix(*options.HandlePrefix) {
 		return IdentityPage{}, ErrInvalid
 	}
 	limit, err := page.NormalizeLimit(options.Limit)
@@ -34,7 +34,7 @@ func (s *Store) ListGroupMembers(ctx context.Context, actor Actor, groupID strin
 	if _, err := s.queries.GetGroupByID(ctx, groupID); err != nil {
 		return IdentityPage{}, fmt.Errorf("get member group: %w", mapStoreError(err))
 	}
-	params := ListGroupMembersParams{GroupID: groupID, RowLimit: int32(limit + 1)}
+	params := ListGroupMembersParams{GroupID: groupID, HandlePrefix: options.HandlePrefix, RowLimit: int32(limit + 1)}
 	if options.After != nil {
 		if options.After.CreatedAt.IsZero() || identifier.ValidateUUID(options.After.ID) != nil {
 			return IdentityPage{}, ErrInvalid
@@ -59,14 +59,25 @@ func (s *Store) ListCurrentIdentityGroups(ctx context.Context, actor Actor, opti
 	if err := requireActor(actor); err != nil {
 		return GroupPage{}, err
 	}
-	if options.Enabled != nil || options.Handle != nil {
+	return s.listIdentityGroups(ctx, actor.IdentityID, options)
+}
+
+func (s *Store) ListIdentityGroups(ctx context.Context, actor Actor, identityID string, options GroupListOptions) (GroupPage, error) {
+	if _, err := s.GetIdentity(ctx, actor, identityID); err != nil {
+		return GroupPage{}, err
+	}
+	return s.listIdentityGroups(ctx, identityID, options)
+}
+
+func (s *Store) listIdentityGroups(ctx context.Context, identityID string, options GroupListOptions) (GroupPage, error) {
+	if options.Enabled != nil || options.Handle != nil || options.HandlePrefix != nil && !validHandlePrefix(*options.HandlePrefix) {
 		return GroupPage{}, ErrInvalid
 	}
 	limit, err := page.NormalizeLimit(options.Limit)
 	if err != nil {
 		return GroupPage{}, ErrInvalid
 	}
-	params := ListIdentityGroupsParams{IdentityID: actor.IdentityID, RowLimit: int32(limit + 1)}
+	params := ListIdentityGroupsParams{IdentityID: identityID, HandlePrefix: options.HandlePrefix, RowLimit: int32(limit + 1)}
 	if options.After != nil {
 		if options.After.CreatedAt.IsZero() || identifier.ValidateUUID(options.After.ID) != nil {
 			return GroupPage{}, ErrInvalid

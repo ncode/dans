@@ -150,3 +150,43 @@ func (s *Store) RebindZoneBinding(ctx context.Context, actor Actor, retiredBindi
 	}
 	return s.ensureZoneBinding(ctx, actor, input, true)
 }
+
+// ZoneBindingRecovery describes advisory actions; mutations always recheck state.
+type ZoneBindingRecovery struct {
+	DeletionState string
+	Actions       []string
+}
+
+func (s *Store) GetZoneBindingRecovery(ctx context.Context, actor Actor, bindingID string) (ZoneBindingRecovery, error) {
+	binding, err := s.GetZoneBinding(ctx, actor, bindingID)
+	if err != nil {
+		return ZoneBindingRecovery{}, err
+	}
+	state, err := s.queries.GetZoneDeletionReconciliationState(ctx, bindingID)
+	if err != nil {
+		return ZoneBindingRecovery{}, fmt.Errorf("get binding recovery: %w", err)
+	}
+	result := ZoneBindingRecovery{DeletionState: "no_attempt", Actions: []string{"observe"}}
+	switch {
+	case state.ConfirmedAbsent:
+		result.DeletionState = "confirmed_absent"
+	case state.HasSucceeded:
+		result.DeletionState = "completed"
+	case state.HasPending:
+		result.DeletionState = "pending"
+	case state.LatestResult == "unknown":
+		result.DeletionState = "unknown"
+	case state.LatestResult == "failed":
+		result.DeletionState = "failed"
+	}
+	if binding.RetiredAt.Valid {
+		if state.HasAttempt && !state.HasSucceeded && !state.ConfirmedAbsent {
+			result.Actions = append(result.Actions, "confirm_absent")
+		}
+		if state.HasRetryable && !state.HasPending && !state.HasSucceeded && !state.ConfirmedAbsent {
+			result.Actions = append(result.Actions, "retry_delete")
+		}
+		result.Actions = append(result.Actions, "rebind")
+	}
+	return result, nil
+}

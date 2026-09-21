@@ -29,10 +29,53 @@ export interface Zone {
 }
 export interface Identity {
   id: string;
+  kind?: "user" | "service";
   handle: string;
   display_name: string | null;
   operator: boolean;
   enabled: boolean;
+}
+export interface Group {
+  id: string;
+  handle: string;
+  display_name: string | null;
+  enabled: boolean;
+}
+export interface Token {
+  id: string;
+  identity_id: string;
+  label: string;
+  status: "active" | "expired" | "revoked";
+  created_at: string;
+  expires_at: string | null;
+  revoked_at: string | null;
+}
+export interface Assignment extends Delegation {
+  identity_enabled: boolean;
+  group_enabled: boolean | null;
+  group_handle: string | null;
+  binding_status: "active" | "retired";
+  effective: boolean;
+}
+export interface Binding {
+  id: string;
+  zone_id: string;
+  zone_name: string;
+  generation: number;
+  status: "active" | "retired";
+  deletion_state?:
+    | "no_attempt"
+    | "pending"
+    | "failed"
+    | "unknown"
+    | "completed"
+    | "confirmed_absent";
+  recovery_actions?: (
+    | "observe"
+    | "confirm_absent"
+    | "retry_delete"
+    | "rebind"
+  )[];
 }
 export interface Delegation {
   id: string;

@@ -17,6 +17,32 @@ DANS-originated errors use JSON with a required `error` string and optional `err
 
 Management collections return `items` and nullable `next_cursor`, default to 100 entries, and accept at most 500. A cursor is bounded and tied to its collection and filters. Every page is a new authentication/authorization decision and does not promise a cross-page snapshot or total count.
 
+## Management relationships and search
+
+Identity and group collections accept `handle_prefix` in addition to exact `handle`. Prefixes contain 1–63 lowercase handle characters, start with a letter or digit, and match punctuation literally; for example, `team_` does not match `team-`. Supplying both filters intersects them. Group members, self-service groups, and operator identity groups also support handle-prefix filtering. Restart pagination after changing a filter; cursors from another filter or parent resource are rejected.
+
+DANS operators can read these paginated identity relationships:
+
+| Endpoint under `/api/v1/dans/identities/{id}` | Meaning |
+| --- | --- |
+| `/groups` | Retained direct group memberships, including disabled groups. |
+| `/delegations` | Currently effective delegations with direct/group provenance; empty for a disabled identity. |
+| `/assignments` | Inspectable delegation assignments with identity/group enabled state, group handle, binding state, and an `effective` flag. Revoked or retired assignments do not regain authority. |
+
+The identity's `operator` field represents its DANS operator role separately from delegations. A disabled identity has no usable authority even if the retained role is privileged. These reads do not grant access or cache authorization. Existing `/me` resources remain limited to the current identity.
+
+`GET /api/v1/dans/me/credential` returns only `token_id` for the current credential. For browser sessions this is the backing API token, allowing the console to mark the token used for sign-in. It reveals no secret or digest and follows the same authentication and no-store rules.
+
+Binding detail responses expose advisory `deletion_state` and `recovery_actions` so clients can present observation and eligible recovery without reconstructing audit history. The fields may be omitted from list or mutation responses; fetch the binding detail when preparing recovery. Every mutation still rechecks current state and authority, and rebinding never restores old delegations.
+
+## Audit downloads
+
+`GET /api/v1/dans/audit-events/export` is restricted to DANS operators and downloads `application/x-ndjson` with one sanitized event per line. It accepts the existing actor, action, target type, target ID, and result filters and traverses all matching pages in descending timestamp/resource-ID order, without a total-row cap or a cross-page snapshot guarantee.
+
+The server retains only a page at a time and rechecks the actual request credential and operator authority before each page. Revocation, expiry, dependency failure, cancellation, or a stalled transfer stops the export. If streaming has started, failure aborts the transfer rather than returning a normally completed partial file or appending an error as an audit event. Clients must check download completion and reject incomplete files. A browser download starting is not evidence that it completed.
+
+Use streaming HTTP response handling for large exports; the generated convenience response decoder buffers responses and retains its existing body and timeout limits. CSV, date-range filtering, snapshot exports, and background export jobs are not provided.
+
 ## Generated Go client
 
 The importable generated package is:

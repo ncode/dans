@@ -356,3 +356,7 @@ func testZoneBinding(createdAt time.Time, retired bool) database.ZoneBinding {
 	}
 	return binding
 }
+
+func (store *zoneStoreStub) GetZoneBindingRecovery(context.Context, database.Actor, string) (database.ZoneBindingRecovery, error) {
+	return database.ZoneBindingRecovery{DeletionState: "no_attempt", Actions: []string{"observe"}}, nil
+}

@@ -36,7 +36,7 @@ A person or team responsible for deploying and running DANS. A platform operator
 _Avoid_: Operator
 
 **Grantee**:
-A user or group named by a delegation.
+An identity (user or service) or group named by a delegation.
 _Avoid_: Tenant, principal
 
 **User**:
@@ -65,8 +65,11 @@ A mutable, non-unique Unicode label shown to people.
 An exact owner name or name pattern within a delegation. Exact selectors are required for the zone apex and literal wildcard RRsets.
 
 **Effective authority**:
-The current union of an identity's direct delegations, group delegations, and DANS operator role.
+The authority an enabled identity can currently use: effective direct delegations, delegations through enabled groups, and its DANS operator role. Disabled identities have no effective authority.
 _Avoid_: Cached permissions
+
+**Retained assignment**:
+A membership or delegation preserved when an identity or group is disabled. Retention alone does not make an assignment effective; re-enabling can restore eligible access, but revocation and zone retirement remain final.
 
 **Authorization decision point**:
 The primary-database statement snapshot at which DANS computes an identity's effective authority for one request. Authority committed before this point applies; a request that has reached this point may finish after a concurrent revocation.

@@ -15,6 +15,8 @@ const (
 	accessMetadataKey
 	actorKey
 	routeInfoKey
+	reauthenticateKey
+	exportParentKey
 )
 
 // AccessMetadata is populated by routing, authorization, and forwarding code.

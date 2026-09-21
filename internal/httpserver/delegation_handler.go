@@ -14,6 +14,8 @@ import (
 )
 
 type DelegationStore interface {
+	ListIdentityDelegations(context.Context, database.Actor, string, database.DelegationListOptions) (database.DelegationPage, error)
+	ListIdentityAssignments(context.Context, database.Actor, string, database.DelegationListOptions) (database.RetainedAssignmentPage, error)
 	CreateDelegation(context.Context, database.Actor, database.DelegationCreate) (database.DelegationDetails, error)
 	GetDelegation(context.Context, database.Actor, string) (database.DelegationDetails, error)
 	ListDelegations(context.Context, database.Actor, database.DelegationListOptions) (database.DelegationPage, error)
@@ -139,11 +141,19 @@ func (handler *DelegationHandler) ListCurrentIdentityDelegations(ctx context.Con
 	if err != nil {
 		return listCurrentDelegationsFailure(err), nil
 	}
+	response, err := selfDelegationPageResponse(result, "identity-delegations", filters)
+	if err != nil {
+		return nil, err
+	}
+	return api.ListCurrentIdentityDelegations200JSONResponse(response), nil
+}
+
+func selfDelegationPageResponse(result database.DelegationPage, resource, filters string) (api.SelfDelegationPage, error) {
 	items := make([]api.SelfDelegation, len(result.Items))
 	for i, item := range result.Items {
 		base, err := delegationResponse(item)
 		if err != nil {
-			return nil, err
+			return api.SelfDelegationPage{}, err
 		}
 		kinds := make([]api.SelfDelegationChangeKinds, len(base.ChangeKinds))
 		for j, kind := range base.ChangeKinds {
@@ -151,12 +161,12 @@ func (handler *DelegationHandler) ListCurrentIdentityDelegations(ctx context.Con
 		}
 		items[i] = api.SelfDelegation{Id: base.Id, ZoneBindingId: base.ZoneBindingId, ZoneId: item.ZoneID, ZoneName: item.ZoneName, GranteeId: base.GranteeId, GranteeKind: api.SelfDelegationGranteeKind(base.GranteeKind), Selectors: base.Selectors, RecordTypes: base.RecordTypes, ChangeKinds: kinds, CreatedAt: base.CreatedAt, RevokedAt: base.RevokedAt}
 	}
-	next, err := nextCursor(result.Next, "identity-delegations", filters)
+	next, err := nextCursor(result.Next, resource, filters)
 	response := api.SelfDelegationPage{Items: items, NextCursor: next}
 	if err != nil {
-		return nil, err
+		return api.SelfDelegationPage{}, err
 	}
-	return api.ListCurrentIdentityDelegations200JSONResponse(response), nil
+	return response, nil
 }
 
 func delegationListOptions(params api.ListDelegationsParams) (database.DelegationListOptions, string, error) {
@@ -251,3 +261,63 @@ func listCurrentDelegationsFailure(err error) api.ListCurrentIdentityDelegations
 }
 
 var _ api.StrictServerInterface = (*DelegationHandler)(nil)
+
+func (handler *DelegationHandler) ListIdentityDelegations(ctx context.Context, request api.ListIdentityDelegationsRequestObject) (api.ListIdentityDelegationsResponseObject, error) {
+	actor, err := requestActor(ctx)
+	filters := url.Values{"identity_id": {request.IdentityId.String()}}.Encode()
+	after, cursorErr := decodePageCursor(request.Params.Cursor, "operator-identity-delegations", filters)
+	if err == nil {
+		err = cursorErr
+	}
+	var result database.DelegationPage
+	if err == nil {
+		result, err = handler.store.ListIdentityDelegations(ctx, actor, request.IdentityId.String(), database.DelegationListOptions{Limit: intValue(request.Params.Limit), After: after})
+	}
+	if err != nil {
+		body, status := managementError(err)
+		return api.ListIdentityDelegationsdefaultJSONResponse{Body: body, StatusCode: status}, nil
+	}
+	response, err := selfDelegationPageResponse(result, "operator-identity-delegations", filters)
+	if err != nil {
+		return nil, err
+	}
+	return api.ListIdentityDelegations200JSONResponse(response), nil
+}
+
+func (handler *DelegationHandler) ListIdentityAssignments(ctx context.Context, request api.ListIdentityAssignmentsRequestObject) (api.ListIdentityAssignmentsResponseObject, error) {
+	actor, err := requestActor(ctx)
+	filters := url.Values{"identity_id": {request.IdentityId.String()}}.Encode()
+	after, cursorErr := decodePageCursor(request.Params.Cursor, "identity-assignments", filters)
+	if err == nil {
+		err = cursorErr
+	}
+	var result database.RetainedAssignmentPage
+	if err == nil {
+		result, err = handler.store.ListIdentityAssignments(ctx, actor, request.IdentityId.String(), database.DelegationListOptions{Limit: intValue(request.Params.Limit), After: after})
+	}
+	if err != nil {
+		body, status := managementError(err)
+		return api.ListIdentityAssignmentsdefaultJSONResponse{Body: body, StatusCode: status}, nil
+	}
+	items := make([]api.RetainedAssignment, len(result.Items))
+	for i, item := range result.Items {
+		base, err := delegationResponse(item.DelegationDetails)
+		if err != nil {
+			return nil, err
+		}
+		kinds := make([]api.RetainedAssignmentChangeKinds, len(base.ChangeKinds))
+		for j, kind := range base.ChangeKinds {
+			kinds[j] = api.RetainedAssignmentChangeKinds(kind)
+		}
+		enabled := nullable.NewNullNullable[bool]()
+		if item.GroupEnabled != nil {
+			enabled = nullable.NewNullableWithValue(*item.GroupEnabled)
+		}
+		items[i] = api.RetainedAssignment{Id: base.Id, ZoneBindingId: base.ZoneBindingId, ZoneId: item.ZoneID, ZoneName: item.ZoneName, GranteeId: base.GranteeId, GranteeKind: api.RetainedAssignmentGranteeKind(base.GranteeKind), Selectors: base.Selectors, RecordTypes: base.RecordTypes, ChangeKinds: kinds, CreatedAt: base.CreatedAt, RevokedAt: base.RevokedAt, IdentityEnabled: item.IdentityEnabled, GroupEnabled: enabled, GroupHandle: nullableString(item.GroupHandle), BindingStatus: api.RetainedAssignmentBindingStatus(item.BindingStatus), Effective: item.Effective}
+	}
+	next, err := nextCursor(result.Next, "identity-assignments", filters)
+	if err != nil {
+		return nil, err
+	}
+	return api.ListIdentityAssignments200JSONResponse{Items: items, NextCursor: next}, nil
+}

@@ -1,6 +1,6 @@
 # Web console design
 
-Agreed design from the frontend interview. This document defines the first release; implementation checks and measured capacity are recorded in the [verification note](../openspec/changes/add-web-console/verification.md).
+The embedded console supports DNS editing and access management. The first-release checks and DNS capacity measurements are recorded in its [verification note](../openspec/changes/add-web-console/verification.md); the [management verification note](../openspec/changes/complete-management-console/verification.md) records the added workflows and capacity checks.
 
 ## Product and scope
 
@@ -13,7 +13,7 @@ The first release includes:
 - Permission explanations using zone information added to self-delegation responses.
 - Explicit Save for edits and confirmation for destructive actions.
 
-Identity and group administration remain in the CLI initially. Identity-provider integration and searching within record values are deferred.
+The console also supports the [management workflows](#management-workflows) below. Identity-provider integration and searching within record values are deferred.
 
 Use React, TypeScript, and Cloudscape. Embed built assets in the existing binary and serve the console alongside the API under the same origin. Minimize backend changes while supporting the agreed authentication and large-zone browsing requirements.
 
@@ -70,3 +70,45 @@ Distinguish confirmed success, confirmed failure, and unknown mutation outcomes.
 Use synthetic DNS data to validate browsing and filtering at the agreed capacity, including complete RRset values and traversal without whole-zone browser downloads. Measure the five-second update target across API instances and exercise initial indexing, concurrent refreshes, refresh failures, and supported zone deletion/recreation.
 
 Verify remembered login, sign-out, token expiry/revocation, and CSRF protection. Exercise delegated and operator workflows, authority changes while editing, draft preservation after detected conflicts, destructive-action confirmation, and unknown outcomes without automatic retries. Verify keyboard navigation, form labels, focus behavior, and visible loading/error states in the rendered UI.
+
+## Management workflows
+
+The console covers these management areas:
+
+- Identities: users and service identities, display names, enabled state, and DANS operator roles.
+- Groups: group administration and direct membership.
+- API tokens and self-service: token creation and revocation, and views of the current identity, memberships, and effective authority.
+- Zone bindings: inspection and explicit zone-lifetime recovery workflows.
+- Audit: the remaining management API filters and export.
+
+Advanced PowerDNS administration, including key management, TSIG, metadata, transfers, and server configuration, is a separate future slice. Existing DNSSEC switches in zone forms remain part of the first release.
+
+The existing management API and CLI provide the core operations. Retain the console's existing authentication, authorization, and UI foundations, with the additions described below.
+
+### Identity details and membership
+
+DANS operators can inspect an identity's profile, groups, effective authority, and token metadata together. Operator read endpoints expose identity memberships, effective delegations, and retained assignments. Users and service identities remain distinct kinds of identity under the existing lifecycle rules.
+
+Separate **Effective authority now** from **Retained assignments**. A disabled identity has no usable authority, while its tokens, memberships, and delegations remain inspectable. Disabled groups retain their memberships and delegations but contribute no effective authority. Explain that re-enabling can restore retained access before confirming the action. Show the DANS operator role explicitly rather than implying that an empty delegation list means an enabled DANS operator has no authority.
+
+### Token issuance and changes to personal access
+
+Create an identity before offering token creation on its detail page. Token creation is a separate explicit action, with a label and optional expiry. Show the newly issued secret once with a Copy action; subsequent views expose metadata only.
+
+Mark the API token used for the current browser sign-in. The current-credential endpoint exposes only its identifier, without its secret. Allow self-revocation, self-disablement, and removal of one's own DANS operator role after explaining the consequences and obtaining confirmation. Retain the server's protection against leaving no enabled DANS operator. Revoking the sign-in token ends sessions backed by that token.
+
+### Binding recovery
+
+Present recovery according to the binding's current state. Offer an explicit upstream observation, explain eligible recovery actions and their consequences, and require confirmation before submitting changes. Rebinding creates a new zone lifetime and does not restore delegations from a retired binding.
+
+### Management search
+
+Support server-side handle-prefix search over complete identity and group collections, retaining bounded cursor pagination. Apply the same search and pagination behavior to membership and delegation selectors rather than downloading every identity or group into the browser. Preserve existing exact-handle lookup for API clients.
+
+### Audit filtering and export
+
+Expose the existing actor, action, target type, target ID, and result filters. Export all matching events as NDJSON through a bounded-memory stream, rechecking current authorization between pages. Describe the export as a traversal of live history rather than a consistent snapshot across pages. Interrupted downloads must fail visibly and must not be presented as complete exports. CSV, date-range filtering, snapshot exports, and background export jobs are deferred.
+
+### Management validation targets
+
+Use synthetic data covering 1,000 identities, 100 groups, 1,000 members in one group, 100 tokens per identity, and 100,000 audit events. These are validation targets, not product limits. Keep every management list and selector paginated, and verify handle-prefix results beyond the first page. The first release's DNS capacity and browser-session requirements continue to apply.

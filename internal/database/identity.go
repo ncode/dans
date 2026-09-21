@@ -32,12 +32,13 @@ type IdentityPatch struct {
 }
 
 type IdentityListOptions struct {
-	Limit    int
-	After    *page.Key
-	Kind     *string
-	Enabled  *bool
-	Operator *bool
-	Handle   *string
+	Limit        int
+	After        *page.Key
+	Kind         *string
+	Enabled      *bool
+	Operator     *bool
+	Handle       *string
+	HandlePrefix *string
 }
 
 type IdentityPage struct {
@@ -104,15 +105,16 @@ func (s *Store) ListIdentities(ctx context.Context, actor Actor, options Identit
 	if err != nil {
 		return IdentityPage{}, ErrInvalid
 	}
-	if options.Kind != nil && !validIdentityKind(*options.Kind) || options.Handle != nil && !validHandle(*options.Handle) {
+	if options.Kind != nil && !validIdentityKind(*options.Kind) || options.Handle != nil && !validHandle(*options.Handle) || options.HandlePrefix != nil && !validHandlePrefix(*options.HandlePrefix) {
 		return IdentityPage{}, ErrInvalid
 	}
 	params := ListIdentitiesParams{
-		Kind:       options.Kind,
-		Enabled:    options.Enabled,
-		IsOperator: options.Operator,
-		Handle:     options.Handle,
-		RowLimit:   int32(limit + 1),
+		Kind:         options.Kind,
+		Enabled:      options.Enabled,
+		IsOperator:   options.Operator,
+		Handle:       options.Handle,
+		HandlePrefix: options.HandlePrefix,
+		RowLimit:     int32(limit + 1),
 	}
 	if options.After != nil {
 		if options.After.CreatedAt.IsZero() || identifier.ValidateUUID(options.After.ID) != nil {
@@ -237,3 +239,9 @@ func validIdentityKind(kind string) bool {
 func validHandle(handle string) bool {
 	return len(handle) <= 63 && handlePattern.MatchString(handle)
 }
+
+func validHandlePrefix(prefix string) bool {
+	return len(prefix) > 0 && len(prefix) <= 63 && handlePrefixPattern.MatchString(prefix)
+}
+
+var handlePrefixPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]*$`)
