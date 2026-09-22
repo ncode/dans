@@ -1304,9 +1304,15 @@ terminate_running_group() {
 }
 
 drain_running_processes() {
-	if running_group_drained && running_processes_drained; then
-		return 0
-	fi
+	drain_attempt=0
+	while :; do
+		if running_group_drained && running_processes_drained; then
+			return 0
+		fi
+		[ "$drain_attempt" -lt 30 ] || break
+		drain_attempt=$((drain_attempt + 1))
+		sleep 1
+	done
 	terminate_running_group || return 1
 	return 1
 }
