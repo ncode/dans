@@ -1210,15 +1210,9 @@ terminate_running_group() {
 }
 
 drain_running_processes() {
-	drain_attempt=0
-	while :; do
-		if running_group_drained && running_processes_drained; then
-			return 0
-		fi
-		[ "$drain_attempt" -lt 30 ] || break
-		drain_attempt=$((drain_attempt + 1))
-		sleep 1
-	done
+	if running_group_drained && running_processes_drained; then
+		return 0
+	fi
 	terminate_running_group || return 1
 	return 1
 }
@@ -1518,6 +1512,7 @@ merge_running_records() {
 	wait_supervised() {
 		while [ ! -e "$running_launch_marker.finished" ]; do
 			process_running "$running_pid" || {
+				printf '%s\n' 'dev stack: supervisor exited before completion was recorded' >&2
 				mark_operation_uncertain
 				return 125
 			}
@@ -1528,12 +1523,14 @@ merge_running_records() {
 	capture_process_tree "$running_pid"
 	merge_running_records "$captured_process_records"
 	[ ! -e "$running_launch_marker.escaped" ] || {
+		printf '%s\n' 'dev stack: supervisor watchdog detected an escaped process' >&2
 		mark_operation_uncertain
 		return 125
 	}
 	running_status=$(sed -n '1p' "$running_launch_marker.status" 2>/dev/null || true)
 	case "$running_status" in
 		''|*[!0-9]*)
+			printf '%s\n' 'dev stack: supervisor status was not verifiable' >&2
 			mark_operation_uncertain
 			return 125
 			;;
@@ -1543,6 +1540,7 @@ merge_running_records() {
 		[ -s "$running_launch_marker.stderr" ] &&
 		grep -Eiq '(cannot connect to the Docker daemon|error during connect|context deadline exceeded|i/o timeout|tls handshake timeout|server gave HTTP response|daemon.*(unavailable|not responding))' \
 		"$running_launch_marker.stderr"; then
+		printf '%s\n' 'dev stack: Docker transport failure made completion uncertain' >&2
 		mark_operation_uncertain
 		return 125
 	fi
