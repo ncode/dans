@@ -1562,6 +1562,7 @@ compose() {
 	if [ -t 0 ]; then
 		if ! launch_supervised docker compose --file "$compose_file" "$@" </dev/null; then
 			launching=0
+			printf '%s\n' 'dev stack: Docker operation could not be started or supervised' >&2
 			mark_operation_uncertain
 			return 125
 		fi
@@ -1570,6 +1571,7 @@ compose() {
 		if ! launch_supervised docker compose --file "$compose_file" "$@" <&3; then
 			exec 3<&-
 			launching=0
+			printf '%s\n' 'dev stack: Docker operation could not be started or supervised' >&2
 			mark_operation_uncertain
 			return 125
 		fi
@@ -1585,6 +1587,7 @@ compose() {
 		rc=$?
 	fi
 	if ! drain_running_processes; then
+		printf '%s\n' 'dev stack: Docker operation left an untrusted process behind' >&2
 		mark_operation_uncertain
 		cancel_supervised_launch
 		running_pid=
@@ -1594,6 +1597,7 @@ compose() {
 		return 125
 	fi
 	release_supervised_launch || {
+		printf '%s\n' 'dev stack: Docker operation supervisor could not be released' >&2
 		mark_operation_uncertain
 		cancel_supervised_launch
 		return 125

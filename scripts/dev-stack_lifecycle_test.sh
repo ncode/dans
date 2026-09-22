@@ -1692,6 +1692,7 @@ compose() {
 	if [ -t 0 ]; then
 		if ! launch_supervised docker compose --project-name "$project" --file "$root/compose.yaml" "$@" </dev/null; then
 			launching=0
+			printf '%s\n' 'dev lifecycle: Docker operation could not be started or supervised' >&2
 			mark_operation_uncertain
 			return 125
 		fi
@@ -1700,6 +1701,7 @@ compose() {
 		if ! launch_supervised docker compose --project-name "$project" --file "$root/compose.yaml" "$@" <&3; then
 			exec 3<&-
 			launching=0
+			printf '%s\n' 'dev lifecycle: Docker operation could not be started or supervised' >&2
 			mark_operation_uncertain
 			return 125
 		fi
@@ -1715,6 +1717,7 @@ compose() {
 		rc=$?
 	fi
 	if ! drain_running_processes; then
+		printf '%s\n' 'dev lifecycle: Docker operation left an untrusted process behind' >&2
 		mark_operation_uncertain
 		operation_ambiguous=1
 		cancel_supervised_launch
@@ -1725,6 +1728,7 @@ compose() {
 		return 125
 	fi
 	release_supervised_launch || {
+		printf '%s\n' 'dev lifecycle: Docker operation supervisor could not be released' >&2
 		mark_operation_uncertain
 		cancel_supervised_launch
 		return 125
@@ -1823,6 +1827,7 @@ run_make() {
 	' dans-lifecycle-make "$root" "$lock_file" "$project_lock_file" \
 		"$run_operation_marker" "$run_completion_marker" "$@"; then
 		launching=0
+		printf '%s\n' 'dev lifecycle: make operation could not be started or supervised' >&2
 		mark_operation_uncertain
 		return 125
 	fi
@@ -1836,6 +1841,7 @@ run_make() {
 		rc=$?
 	fi
 	if ! drain_running_processes; then
+		printf '%s\n' 'dev lifecycle: make operation left an untrusted process behind' >&2
 		mark_operation_uncertain
 		operation_ambiguous=1
 		cancel_supervised_launch
@@ -1846,6 +1852,7 @@ run_make() {
 		return 125
 	fi
 	release_supervised_launch || {
+		printf '%s\n' 'dev lifecycle: make operation supervisor could not be released' >&2
 		mark_operation_uncertain
 		cancel_supervised_launch
 		return 125
