@@ -1304,7 +1304,11 @@ terminate_running_group() {
 }
 
 drain_running_processes() {
-	if running_group_drained && running_processes_drained; then
+	if ! running_group_drained; then
+		printf '%s\n' 'dev lifecycle: operation process-group drain check failed' >&2
+	elif ! running_processes_drained; then
+		printf '%s\n' 'dev lifecycle: tracked operation process drain check failed' >&2
+	else
 		return 0
 	fi
 	terminate_running_group || return 1
