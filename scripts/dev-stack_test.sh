@@ -787,7 +787,8 @@ kill -TERM "$interrupt_lock_worker_pid"
 attempt=0
 while process_running "$interrupt_operation_pid"; do
 	attempt=$((attempt + 1))
-	[ "$attempt" -lt 25 ] || {
+	# Shared process groups may use the supervisor's bounded 30-second residual probe.
+	[ "$attempt" -lt 40 ] || {
 		kill_process_tree "$interrupt_operation_pid" "$interrupt_operation_identity"
 		printf '%s\n' 'dev stack behavior: interrupt wrapper did not exit' >&2
 		exit 1
