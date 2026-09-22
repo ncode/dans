@@ -17,9 +17,14 @@ validate_no_extended_acl() {
 			[ "$acl_strict" -eq 0 ] || die 'development path has an unsupported extended ACL'
 			acl_inspected=0
 			if command -v getfacl >/dev/null 2>&1; then
-				acl_entries=$(getfacl -cp "$acl_path" 2>/dev/null) ||
+				acl_entries=$(getfacl -cpn "$acl_path" 2>/dev/null) ||
 					die 'development path ACL entries could not be inspected'
-				if printf '%s\n' "$acl_entries" | awk -F: '/^(default:)?(user|group):[^:]+:/ && $NF ~ /w/ { found = 1 } END { exit found ? 0 : 1 }'; then
+				current_user_id=$(id -u)
+				if printf '%s\n' "$acl_entries" | awk -F: -v current_user_id="$current_user_id" '
+					/^(default:)?user:[^:]+:/ && $2 != current_user_id && $2 != 0 && $NF ~ /w/ { found = 1 }
+					/^(default:)?group:[^:]+:/ && $NF ~ /w/ { found = 1 }
+					END { exit found ? 0 : 1 }
+				'; then
 					die 'development path has an ACL write grant'
 				fi
 				acl_inspected=1
