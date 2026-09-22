@@ -122,7 +122,11 @@ jobs:
             rm -f "$failure_log"
             exit 1
           fi
-          grep -Fq 'injected lifecycle assertion failure' "$failure_log"
+          if ! grep -Fq 'injected lifecycle assertion failure' "$failure_log"; then
+            grep -E '^(dev lifecycle:|dev stack:|make: \*\*)' "$failure_log" >&2 || true
+            rm -f "$failure_log"
+            exit 1
+          fi
           rm -f "$failure_log"
           test ! -e .dans
           lifecycle_project_id=$(printf '%s\n' "$(pwd -P)" | cksum | awk '{print $1}')
