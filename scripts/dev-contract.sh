@@ -15,6 +15,7 @@ fail() {
 [ -f "$compose" ] || fail "missing root compose.yaml"
 [ -x "$lifecycle" ] || fail "missing executable scripts/dev-stack.sh"
 [ -x "$root/scripts/dev-host-smoke_test.sh" ] || fail "missing executable host smoke checks"
+[ -x "$root/scripts/dev-stack_lifecycle_init_test.sh" ] || fail "missing executable lifecycle initialization checks"
 
 grep -Fq 'name: ${COMPOSE_PROJECT_NAME:-dans-dev}' "$compose" || fail "Compose project identity is not overridable"
 grep -Fq 'image: ${COMPOSE_PROJECT_NAME:-dans-dev}:local' "$compose" || fail "the local image is shared across checkouts"
@@ -90,7 +91,7 @@ grep -Eq '(nslookup|dig )' "$lifecycle" || fail "smoke does not query authoritat
 grep -Fq 'down) compose --profile tools down --remove-orphans ;;' "$lifecycle" || fail "make down may remove persistent data"
 token_reset_line=$(grep -n 'rm -f "$token_file"' "$lifecycle" | cut -d: -f1)
 volume_reset_line=$(grep -n 'down --volumes --remove-orphans' "$lifecycle" | cut -d: -f1)
-[ "$token_reset_line" -lt "$volume_reset_line" ] || fail "reset can preserve a stale token after partial volume deletion"
+[ "$volume_reset_line" -lt "$token_reset_line" ] || fail "reset removes credentials before volume teardown succeeds"
 
 grep -Fq '.dans/' "$root/.gitignore" || fail ".dans credentials are not ignored"
 grep -Fxq '.dans' "$root/.dockerignore" || fail ".dans credentials enter the Docker build context"
@@ -113,6 +114,8 @@ fi
 sh -n "$lifecycle"
 sh -n "$root/scripts/dev-stack_test.sh"
 sh -n "$root/scripts/dev-host-smoke_test.sh"
+sh -n "$root/scripts/dev-stack_lifecycle_init_test.sh"
+"$root/scripts/dev-stack_lifecycle_init_test.sh"
 "$root/scripts/dev-stack_test.sh"
 "$root/scripts/dev-host-smoke_test.sh"
 docker compose --file "$compose" config --quiet

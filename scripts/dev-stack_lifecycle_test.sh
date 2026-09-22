@@ -1,6 +1,7 @@
 #!/bin/sh
 set -eu
 
+umask 077
 root=$(CDPATH= cd -P -- "$(dirname -- "$0")/.." && pwd)
 if ! (true <&0) 2>/dev/null; then
 	exec 0</dev/null
@@ -10,16 +11,16 @@ validate_no_extended_acl() {
 	acl_path=$1
 	acl_strict=${2:-0}
 	acl_listing=$(ls -lde "$acl_path" 2>/dev/null || ls -ld "$acl_path" 2>/dev/null) ||
-		die 'development path ACLs could not be checked'
+		fail 'development path ACLs could not be checked'
 	acl_mode=$(printf '%s\n' "$acl_listing" | awk 'NR == 1 { print $1 }')
 	case "$acl_mode" in
 		*+)
-			[ "$acl_strict" -eq 0 ] || die 'development path has an unsupported extended ACL'
+			[ "$acl_strict" -eq 0 ] || fail 'development path has an unsupported extended ACL'
 			if printf '%s\n' "$acl_listing" | awk 'NR > 1 && /allow/ && /(write|delete|add_file|add_subdirectory|append|chown)/ { found = 1 } END { exit found ? 0 : 1 }'; then
-				die 'development path has an ACL write grant'
+				fail 'development path has an ACL write grant'
 			fi
 			[ "$(printf '%s\n' "$acl_listing" | awk 'END { print NR }')" -gt 1 ] ||
-				die 'development path ACL entries could not be inspected'
+				fail 'development path ACL entries could not be inspected'
 			;;
 	esac
 }
@@ -27,18 +28,18 @@ validate_no_extended_acl() {
 validate_checkout_ancestors() {
 	ancestor=$root
 	while :; do
-		[ -d "$ancestor" ] && [ ! -L "$ancestor" ] || die 'development checkout path is not a trusted directory'
+		[ -d "$ancestor" ] && [ ! -L "$ancestor" ] || fail 'development checkout path is not a trusted directory'
 		validate_no_extended_acl "$ancestor"
 		ancestor_permissions=$(stat -c '%A' "$ancestor" 2>/dev/null ||
 			stat -f '%Sp' "$ancestor" 2>/dev/null) ||
-			die 'development checkout permissions could not be checked'
+			fail 'development checkout permissions could not be checked'
 		ancestor_owner=$(stat -c '%u' "$ancestor" 2>/dev/null ||
 			stat -f '%u' "$ancestor" 2>/dev/null) ||
-			die 'development checkout ownership could not be checked'
+			fail 'development checkout ownership could not be checked'
 		current_user_id=$(id -u)
 		case "$ancestor_owner" in
 			0|"$current_user_id") ;;
-			*) die 'development checkout path is owned by another user' ;;
+			*) fail 'development checkout path is owned by another user' ;;
 		esac
 		ancestor_writable=$(printf '%s\n' "$ancestor_permissions" |
 			awk '{print (substr($0, 6, 1) == "w" || substr($0, 9, 1) == "w") ? 1 : 0}')
@@ -46,100 +47,31 @@ validate_checkout_ancestors() {
 			awk '{print (substr($0, 10, 1) == "t" || substr($0, 10, 1) == "T") ? 1 : 0}')
 		if [ "$ancestor_writable" -ne 0 ]; then
 			[ "$ancestor" != "$root" ] && [ "$ancestor_sticky" -eq 1 ] ||
-				die 'development checkout path is writable by another user'
+				fail 'development checkout path is writable by another user'
 		fi
 		[ "$ancestor" = / ] && break
 		ancestor=$(CDPATH= cd -P -- "$ancestor/.." && pwd) ||
-			die 'development checkout parent could not be trusted'
+			fail 'development checkout parent could not be trusted'
 	done
 }
 
-compose_file=$root/compose.yaml
-credential_dir=$root/.dans/dev
-token_file=$credential_dir/operator-token
-project_file=$credential_dir/compose-project
-ddl_url='postgres://dans_ddl:dans-ddl@postgres/dans?sslmode=disable'
-runtime_url='postgres://dans_runtime:dans-runtime@postgres/dans?sslmode=disable'
-
-die() {
-	printf '%s\n' "dev stack: $*" >&2
-	mark_worker_done
-	exit 1
-}
-
-validate_local_state() {
-	validate_all=$1
-	if [ -e "$root/.dans" ] || [ -L "$root/.dans" ]; then
-		[ ! -L "$root/.dans" ] || die 'local development state directory is a symlink'
-		[ -d "$root/.dans" ] && [ -O "$root/.dans" ] ||
-			die 'local development state directory is not owned by this user'
-		validate_no_extended_acl "$root/.dans" 1
-		state_permissions=$(stat -c '%A' "$root/.dans" 2>/dev/null || stat -f '%Sp' "$root/.dans" 2>/dev/null) ||
-			die 'local development state directory permissions could not be checked'
-		[ "$(printf '%s\n' "$state_permissions" | awk '{print (substr($0, 6, 1) == "w" || substr($0, 9, 1) == "w") ? 1 : 0}')" -eq 0 ] ||
-			die 'local development state directory is writable by another user'
-		[ ! -L "$root/.dans" ] || die 'local development state directory is a symlink'
-	fi
-	if [ -e "$credential_dir" ] || [ -L "$credential_dir" ]; then
-		[ ! -L "$credential_dir" ] || die 'local development credential directory is a symlink'
-		[ -d "$credential_dir" ] && [ -O "$credential_dir" ] ||
-			die 'local development credential directory is not owned by this user'
-		validate_no_extended_acl "$credential_dir" 1
-		state_permissions=$(stat -c '%A' "$credential_dir" 2>/dev/null || stat -f '%Sp' "$credential_dir" 2>/dev/null) ||
-			die 'local development credential directory permissions could not be checked'
-		[ "$(printf '%s\n' "$state_permissions" | awk '{print (substr($0, 6, 1) == "w" || substr($0, 9, 1) == "w") ? 1 : 0}')" -eq 0 ] ||
-			die 'local development credential directory is writable by another user'
-		[ ! -L "$credential_dir" ] || die 'local development credential directory is a symlink'
-	fi
-	for state_file in "$token_file" "$project_file"; do
-		if [ -e "$state_file" ] || [ -L "$state_file" ]; then
-			[ -f "$state_file" ] && [ ! -L "$state_file" ] && [ -O "$state_file" ] ||
-				die 'local development state file is not a trusted regular file'
-			validate_no_extended_acl "$state_file" 1
-			state_link_count=$(stat -c '%h' "$state_file" 2>/dev/null ||
-				stat -f '%l' "$state_file" 2>/dev/null) ||
-				die 'local development state file link count could not be checked'
-			[ "$state_link_count" -eq 1 ] ||
-				die 'local development state file has unexpected hard links'
-			chmod 600 "$state_file" ||
-				die 'local development state file permissions could not be secured'
-			[ ! -L "$state_file" ] && [ -f "$state_file" ] && [ -O "$state_file" ] ||
-				die 'local development state file changed while being secured'
-		fi
-	done
-	[ "$validate_all" -eq 1 ] || return 0
-	for state_file in \
-		"$token_file.tmp" "$project_file.tmp" \
-		"$credential_dir"/bootstrap-error "$credential_dir"/bootstrap-output \
-		"$credential_dir"/recovery-error "$credential_dir"/recovery-output \
-		"$credential_dir"/bootstrap-error.* "$credential_dir"/bootstrap-output.* \
-		"$credential_dir"/recovery-error.* "$credential_dir"/recovery-output.* \
-		"$credential_dir"/compose-project.* "$credential_dir"/operator-token.*; do
-		if [ -e "$state_file" ] || [ -L "$state_file" ]; then
-			[ -f "$state_file" ] && [ ! -L "$state_file" ] && [ -O "$state_file" ] ||
-				die 'local development state file is not a trusted regular file'
-			validate_no_extended_acl "$state_file" 1
-			state_link_count=$(stat -c '%h' "$state_file" 2>/dev/null ||
-				stat -f '%l' "$state_file" 2>/dev/null) ||
-				die 'local development state file link count could not be checked'
-			[ "$state_link_count" -eq 1 ] ||
-				die 'local development state file has unexpected hard links'
-			chmod 600 "$state_file" ||
-				die 'local development state file permissions could not be secured'
-			[ ! -L "$state_file" ] && [ -f "$state_file" ] && [ -O "$state_file" ] ||
-				die 'local development state file changed while being secured'
-		fi
-	done
-}
-
+token_file=$root/.dans/dev/operator-token
+project_file=$root/.dans/dev/compose-project
 physical_root=$(CDPATH= cd -P -- "$root" && pwd)
 project_id=$(printf '%s\n' "$physical_root" | cksum | awk '{print $1}')
 user_id=$(id -u)
+project=dans-dev-$user_id-$project_id
 lock_dir=/tmp/dans-dev-locks-$user_id
-stack_lock_file=$lock_dir/dans-dev-stack-$project_id.lock
-default_project=dans-dev-$user_id-$project_id
+lock_file=$lock_dir/dans-dev-stack-$project_id.lock
+project_lock_file=$lock_dir/dans-dev-compose-$project.lock
+ownership_marker=$root/.dans/lifecycle-owned
 operation_marker=${DANS_DEV_OPERATION_MARKER:-}
-completion_marker=${DANS_DEV_COMPLETION_MARKER:-}
+
+fail() {
+	printf '%s\n' "dev lifecycle: $*" >&2
+	mark_worker_done
+	exit 1
+}
 
 mark_operation_uncertain() {
 	[ -n "$operation_marker" ] || return 0
@@ -153,27 +85,21 @@ mark_worker_done() {
 
 validate_checkout_ancestors
 
-mark_operation_complete() {
-	[ -n "$completion_marker" ] || return 0
-	[ -e "$operation_marker" ] && return 0
-	(umask 077 && : >"$completion_marker") 2>/dev/null || true
-}
-
 prepare_lock_dir() {
 	if [ -L "$lock_dir" ] || { [ -e "$lock_dir" ] && [ ! -d "$lock_dir" ]; }; then
-		die 'development stack lock directory is not a directory'
+		fail 'development stack lock directory is not a directory'
 	fi
 	if [ ! -e "$lock_dir" ]; then
 		(umask 077 && mkdir "$lock_dir") || [ -d "$lock_dir" ] ||
-			die 'could not create development stack lock directory'
+			fail 'could not create development stack lock directory'
 	fi
 	[ -d "$lock_dir" ] && [ ! -L "$lock_dir" ] ||
-		die 'development stack lock directory is not a trusted directory'
-	[ -O "$lock_dir" ] || die 'development stack lock directory is not owned by this user'
+		fail 'development stack lock directory is not a trusted directory'
+	[ -O "$lock_dir" ] || fail 'development stack lock directory is not owned by this user'
 	validate_no_extended_acl "$lock_dir" 1
-	chmod 700 "$lock_dir" 2>/dev/null || die 'development stack lock directory is not owned by this user'
+	chmod 700 "$lock_dir" 2>/dev/null || fail 'development stack lock directory is not owned by this user'
 	[ -r "$lock_dir" ] && [ -w "$lock_dir" ] && [ -x "$lock_dir" ] ||
-		die 'development stack lock directory is not accessible'
+		fail 'development stack lock directory is not accessible'
 }
 
 prepare_lock_path() {
@@ -182,13 +108,11 @@ prepare_lock_path() {
 	[ "$lock_parent" = "$lock_path" ] && lock_parent=.
 	validate_no_extended_acl "$lock_parent" 1
 	[ ! -L "$lock_path" ] && { [ ! -e "$lock_path" ] || [ -d "$lock_path" ]; } ||
-		die 'development stack lock path is not a trusted directory'
+		fail 'development stack lock path is not a trusted directory'
 	[ ! -e "$lock_path" ] || validate_no_extended_acl "$lock_path" 1
 }
 
-for command in awk ls mkfifo pgrep ps tee tr; do
-	command -v "$command" >/dev/null 2>&1 || die "development stack locking requires $command"
-done
+command -v pgrep >/dev/null 2>&1 || fail 'development stack locking requires pgrep'
 
 process_identity() {
 	process_id=$1
@@ -223,7 +147,7 @@ process_running() {
 		case "$process_state" in
 			''|Z*) return 1 ;;
 			*) return 0 ;;
-		esac
+				esac
 	else
 		kill -0 "$process_id" 2>/dev/null
 	fi
@@ -331,16 +255,6 @@ group_has_trusted_member() {
 	return 1
 }
 
-has_trusted_record() {
-	for tracked_record in $shutdown_records; do
-		tracked_pid=${tracked_record%%/*}
-		[ "$tracked_pid" = "$shutdown_pid" ] && continue
-		tracked_identity=${tracked_record#*/}
-		[ "$(process_identity "$tracked_pid" || true)" = "$tracked_identity" ] && return 0
-	done
-	return 1
-}
-
 wait_for_lock_owner_record() {
 	lock_ready_file=${DANS_DEV_LOCK_OWNER_READY:-}
 	[ -n "$lock_ready_file" ] || return 0
@@ -348,15 +262,13 @@ wait_for_lock_owner_record() {
 	while [ ! -f "$lock_ready_file" ]; do
 		lock_parent=${DANS_DEV_LOCK_OWNER_PARENT:-}
 		if [ -n "$lock_parent" ] && ! kill -0 "$lock_parent" 2>/dev/null; then
-			die 'development stack lock owner exited before publishing its record'
+			fail 'development stack lock owner exited before publishing its record'
 		fi
-		[ "$lock_ready_attempt" -lt 30 ] || die 'development stack lock owner record was not published'
+		[ "$lock_ready_attempt" -lt 30 ] || fail 'development stack lock owner record was not published'
 		lock_ready_attempt=$((lock_ready_attempt + 1))
 		sleep 1
 	done
 }
-
-wait_for_lock_owner_record
 
 validate_lock_owner() {
 	owner_lock_path=$1
@@ -412,6 +324,16 @@ captured_process_matches() {
 	for captured_record in $captured_process_records; do
 		[ "${captured_record%%/*}" = "$captured_expected_pid" ] || continue
 		[ "${captured_record#*/}" = "$captured_expected_identity" ] && return 0
+	done
+	return 1
+}
+
+has_trusted_record() {
+	for tracked_record in $shutdown_records; do
+		tracked_pid=${tracked_record%%/*}
+		[ "$tracked_pid" = "$shutdown_pid" ] && continue
+		tracked_identity=${tracked_record#*/}
+		[ "$(process_identity "$tracked_pid" || true)" = "$tracked_identity" ] && return 0
 	done
 	return 1
 }
@@ -571,24 +493,24 @@ shutdown_descendants() {
 
 diagnose_mkdir_lock() {
 	lock_path=$1
-	[ -f "$lock_path/pid" ] || die 'development stack is already in use (lock owner is unknown)'
+	[ -f "$lock_path/pid" ] || fail 'development stack is already in use (lock owner is unknown)'
 	owner_pid=$(sed -n '1p' "$lock_path/pid" 2>/dev/null || true)
 	owner_identity=$(sed -n '2p' "$lock_path/pid" 2>/dev/null || true)
 	case "$owner_pid" in
-		''|0|*[!0-9]*) die 'development stack lock owner is unknown or inaccessible; verify no operation is active before removing its lock directory' ;;
+		''|0|*[!0-9]*) fail 'development stack lock owner is unknown or inaccessible; verify no operation is active before removing its lock directory' ;;
 	esac
 	[ -n "$owner_identity" ] ||
-		die 'development stack lock owner is unknown or inaccessible; verify no operation is active before removing its lock directory'
+		fail 'development stack lock owner is unknown or inaccessible; verify no operation is active before removing its lock directory'
 	current_owner_identity=$(process_identity "$owner_pid" || true)
 	[ -n "$current_owner_identity" ] ||
-		die 'development stack lock owner is unknown or inaccessible; verify no operation is active before removing its lock directory'
+		fail 'development stack lock owner is unknown or inaccessible; verify no operation is active before removing its lock directory'
 	if [ "$current_owner_identity" != "$owner_identity" ]; then
-		die 'development stack lock is stale; recorded owner no longer matches the process at that PID'
+		fail 'development stack lock is stale; recorded owner no longer matches the process at that PID'
 	fi
 	if process_running "$owner_pid"; then
-		die "development stack is already in use by process $owner_pid"
+		fail "development stack is already in use by process $owner_pid"
 	fi
-	die 'development stack lock is stale; verify no operation is active, then remove its lock directory'
+	fail 'development stack lock is stale; verify no operation is active, then remove its lock directory'
 }
 
 acquire_mkdir_lock() {
@@ -613,7 +535,7 @@ acquire_mkdir_lock() {
 			rm -f "$lock_path/pid" "$lock_path/ready" "$lock_path/worker-done"
 			rmdir "$lock_path" 2>/dev/null || true
 		elif [ "$retain_lock" -eq 1 ] && [ "$lock_acquired" -eq 1 ]; then
-			printf '%s\n' 'dev stack: interrupted operation left its lock for manual stale-lock recovery' >&2
+			printf '%s\n' 'dev lifecycle: interrupted operation left its lock for manual stale-lock recovery' >&2
 		fi
 		exit "$status"
 	}
@@ -631,14 +553,14 @@ acquire_mkdir_lock() {
 	fi
 	lock_acquired=1
 	set -m
-		env "$env_name=1" \
+	env "$env_name=1" \
 		DANS_DEV_OPERATION_MARKER="$lock_path/operation-uncertain" \
 		DANS_DEV_LOCK_WORKER_DONE="$lock_path/worker-done" \
 		DANS_DEV_LOCK_OWNER_READY="$lock_path/ready" \
 		DANS_DEV_LOCK_OWNER_PARENT="$$" \
 		DANS_DEV_LOCK_PARENT_GROUP="$(process_group_id "$$" || true)" \
-		DANS_DEV_STACK_LOCK_OWNER="${DANS_DEV_STACK_LOCK_OWNER:-$stack_lock_file}" \
-		DANS_DEV_PROJECT_LOCK_OWNER="${DANS_DEV_PROJECT_LOCK_OWNER:-${project_lock_file:-}}" \
+		DANS_DEV_LIFECYCLE_LOCK_OWNER="${DANS_DEV_LIFECYCLE_LOCK_OWNER:-$lock_file}" \
+		DANS_DEV_PROJECT_LOCK_OWNER="${DANS_DEV_PROJECT_LOCK_OWNER:-$project_lock_file}" \
 		sh -c '
 			wrapper_child_pid=
 			wrapper_child_identity=
@@ -730,7 +652,7 @@ acquire_mkdir_lock() {
 								;;
 						esac
 						;;
-				esac
+				 esac
 			fi
 			wrapper_group_baseline=0
 			if [ "$wrapper_group_isolated" -eq 0 ] &&
@@ -851,7 +773,7 @@ acquire_mkdir_lock() {
 			: >"$lock_path/ready"); then
 		initializing=0
 		signal_cleanup 1 0
-		die 'could not initialize development stack lock'
+		fail 'could not initialize development stack lock'
 	fi
 	initializing=0
 	capture_process_tree "$worker_pid"
@@ -864,133 +786,311 @@ acquire_mkdir_lock() {
 	fi
 	if [ -e "$lock_path/operation-uncertain" ]; then
 		trap ':' HUP INT TERM
-		printf '%s\n' 'dev stack: Docker operation completion is uncertain; lock retained for manual stale-lock recovery' >&2
+		printf '%s\n' 'dev lifecycle: Docker operation completion is uncertain; lock retained for manual stale-lock recovery' >&2
 		return 125
 	fi
 	if [ "$rc" -eq 125 ] || [ "$rc" -ge 128 ]; then
 		shutdown_process "$worker_pid" 180 1 "$worker_group_id" "${worker_identity:-}" "${worker_records:-}"
 		reap_stopped_process "$worker_pid"
 		trap ':' HUP INT TERM
-		printf '%s\n' 'dev stack: worker terminated abnormally; lock retained for manual stale-lock recovery' >&2
+		printf '%s\n' 'dev lifecycle: worker terminated abnormally; lock retained for manual stale-lock recovery' >&2
 		return "$rc"
 	fi
 	trap ':' HUP INT TERM
 	rm -f "$lock_path/pid" "$lock_path/ready" "$lock_path/worker-done"
-	rmdir "$lock_path" 2>/dev/null || die 'could not release development stack lock'
+	rmdir "$lock_path" 2>/dev/null || fail 'could not release development stack lock'
 	return "$rc"
 }
 
-acquire_stack_lock() {
-	if [ "${DANS_DEV_STACK_LOCK_HELD:-}" = 1 ]; then
-		validate_lock_owner "$stack_lock_file.lockdir" "${DANS_DEV_STACK_LOCK_OWNER_IDENTITY:-}" ||
-			die 'development stack lock ownership could not be verified'
-		return 0
-	fi
-	if [ -n "${DANS_DEV_STACK_LOCK_OWNER:-}" ]; then
-		[ "$DANS_DEV_STACK_LOCK_OWNER" = "$stack_lock_file" ] &&
-			validate_lock_owner "$stack_lock_file.lockdir" "${DANS_DEV_STACK_LOCK_OWNER_IDENTITY:-}" ||
-			die 'development stack lock ownership could not be verified'
-		return 0
-	fi
-	prepare_lock_dir
-	if acquire_mkdir_lock "$stack_lock_file.lockdir" DANS_DEV_STACK_LOCK_HELD "$0" "$@"; then
-		acquire_status=0
-	else
-		acquire_status=$?
-	fi
-	mark_worker_done
-	exit "$acquire_status"
-}
+wait_for_lock_owner_record
 
-acquire_project_lock() {
-	if [ "${DANS_DEV_PROJECT_LOCK_HELD:-}" = 1 ]; then
-		validate_lock_owner "$project_lock_file.lockdir" "${DANS_DEV_PROJECT_LOCK_OWNER_IDENTITY:-}" ||
-			die 'development project lock ownership could not be verified'
-		return 0
-	fi
-	[ "${project_lock_shared:-0}" -eq 1 ] || prepare_lock_dir
-	if acquire_mkdir_lock "$project_lock_file.lockdir" DANS_DEV_PROJECT_LOCK_HELD "$@"; then
-		acquire_status=0
-	else
-		acquire_status=$?
-	fi
-	mark_worker_done
-	exit "$acquire_status"
-}
-
-command=${1:-}
-case "$command" in
-	up|down|smoke|smoke-host|reset|status) acquire_stack_lock "$@" ;;
-esac
-case "$command" in
-	up|down|smoke|smoke-host|reset) validate_local_state 0 ;;
-	status|logs) validate_local_state 0 ;;
-esac
-
-if [ -s "$project_file" ]; then
-	[ -O "$credential_dir" ] && [ -O "$project_file" ] ||
-		die 'local development state is owned by another user'
-	COMPOSE_PROJECT_NAME=$(sed -n '1p' "$project_file")
-elif [ -s "$token_file" ]; then
-	[ -O "$credential_dir" ] && [ -O "$token_file" ] ||
-		die 'local development credentials are owned by another user'
-	[ "$command" = reset ] ||
-		die 'local project ownership is missing; refusing automatic recovery'
-	COMPOSE_PROJECT_NAME=${DANS_DEV_LEGACY_PROJECT_NAME:-}
-	[ -n "$COMPOSE_PROJECT_NAME" ] ||
-		die 'local project ownership is missing; set DANS_DEV_LEGACY_PROJECT_NAME after verifying the legacy Compose project'
+if [ "${DANS_DEV_LIFECYCLE_LOCK_HELD:-}" = 1 ]; then
+	validate_lock_owner "$lock_file.lockdir" "${DANS_DEV_LIFECYCLE_LOCK_OWNER_IDENTITY:-}" ||
+		fail 'development stack lock ownership could not be verified'
 else
-	COMPOSE_PROJECT_NAME=$default_project
+	prepare_lock_dir
+	if acquire_mkdir_lock "$lock_file.lockdir" DANS_DEV_LIFECYCLE_LOCK_HELD "$0" "$@"; then
+		acquire_status=0
+	else
+		acquire_status=$?
+	fi
+	mark_worker_done
+	exit "$acquire_status"
 fi
-case "$COMPOSE_PROJECT_NAME" in
-	''|[!a-z0-9]*|*[!a-z0-9_-]*) die 'invalid local Compose project identity' ;;
-	dans-dev|dans-dev-$user_id-*) : ;;
-	dans-dev-[0-9]*)
-		legacy_suffix=${COMPOSE_PROJECT_NAME#dans-dev-}
-		case "$legacy_suffix" in
-			''|*[!0-9]*) die 'invalid legacy local Compose project identity' ;;
-		esac
-		;;
-	*) die 'local Compose project identity belongs to another user' ;;
-esac
-export COMPOSE_PROJECT_NAME
-project_lock_shared=0
-case "$COMPOSE_PROJECT_NAME" in
-	dans-dev)
-		# Legacy names can be independently owned by different users; share one
-		# sticky-directory lock so their Docker resources cannot be mutated concurrently.
-		project_lock_shared=1
-		project_lock_file=/tmp/dans-dev-compose-$COMPOSE_PROJECT_NAME.lock
-		;;
-	dans-dev-[0-9]*)
-	legacy_suffix=${COMPOSE_PROJECT_NAME#dans-dev-}
-	case "$legacy_suffix" in
-		''|*[!0-9]*)
-			prepare_lock_dir
-			project_lock_file=$lock_dir/dans-dev-compose-$COMPOSE_PROJECT_NAME.lock
-			;;
-		*)
-			project_lock_shared=1
-			project_lock_file=/tmp/dans-dev-compose-$COMPOSE_PROJECT_NAME.lock
-			;;
-	esac
-		;;
-	*)
-		prepare_lock_dir
-		project_lock_file=$lock_dir/dans-dev-compose-$COMPOSE_PROJECT_NAME.lock
-		;;
-esac
-case "$command" in
-	status|logs) prepare_lock_dir ;;
-esac
-case "$command" in
-	up|down|smoke|smoke-host|reset) acquire_project_lock "$0" "$@" ;;
-esac
-case "$command" in
-	up|down|smoke|smoke-host|reset) validate_local_state 1 ;;
-	status|logs) validate_local_state 0 ;;
-esac
 
+if [ "${DANS_DEV_PROJECT_LOCK_HELD:-}" = 1 ]; then
+	validate_lock_owner "$project_lock_file.lockdir" "${DANS_DEV_PROJECT_LOCK_OWNER_IDENTITY:-}" ||
+		fail 'development project lock ownership could not be verified'
+else
+	prepare_lock_dir
+	if acquire_mkdir_lock "$project_lock_file.lockdir" DANS_DEV_PROJECT_LOCK_HELD \
+		"$0" "$@"; then
+		acquire_status=0
+	else
+		acquire_status=$?
+	fi
+	mark_worker_done
+	exit "$acquire_status"
+fi
+
+run=
+initialization_cleanup() {
+	status=$?
+	trap - EXIT
+	[ -z "${run:-}" ] || rm -rf "$run"
+	mark_worker_done
+	exit "$status"
+}
+trap initialization_cleanup EXIT
+
+run=$(mktemp -d "${TMPDIR:-/tmp}/dans-dev-lifecycle.XXXXXX")
+chmod 700 "$run"
+run_operation_marker=$run/docker-operation-uncertain
+operation_marker=$run_operation_marker
+owned=0
+run_make_count=0
+
+cleanup_probe() {
+	probe_name=$1
+	shift
+	probe_status_file=$run/$probe_name.status
+	probe_start_file=$run/$probe_name.start
+	probe_go_file=$run/$probe_name.go
+	probe_cancel_file=$run/$probe_name.cancel
+	rm -f "$probe_status_file" "$probe_start_file" "$probe_go_file" "$probe_cancel_file"
+	probe_baseline_file=
+	probe_parent_group=$(process_group_id "$$" || true)
+	if [ -n "$probe_parent_group" ]; then
+		probe_baseline_file=$(mktemp "$run/$probe_name-group-baseline.XXXXXX" || true)
+		if [ -n "$probe_baseline_file" ] && ! capture_group_baseline "$probe_parent_group" "$probe_baseline_file"; then
+			probe_baseline_file=
+		fi
+	fi
+	set -m
+	(
+		(umask 077 && : >"$probe_start_file") || exit 125
+		while [ ! -e "$probe_go_file" ]; do
+			[ ! -e "$probe_cancel_file" ] || exit 125
+			sleep 1
+		done
+		if "$@"; then
+			printf '%s\n' 0 >"$probe_status_file"
+		else
+			probe_command_status=$?
+			printf '%s\n' "$probe_command_status" >"$probe_status_file"
+		fi
+	) >"$run/$probe_name.out" 2>"$run/$probe_name.err" &
+	probe_pid=$!
+	probe_attempt=0
+	while [ ! -e "$probe_start_file" ]; do
+		if ! kill -0 "$probe_pid" 2>/dev/null; then
+			wait "$probe_pid" 2>/dev/null || true
+			rm -f "$probe_status_file" "$probe_start_file" "$probe_go_file" "$probe_cancel_file"
+			return 1
+		fi
+		if [ "$probe_attempt" -ge 300 ]; then
+			(umask 077 && : >"$probe_cancel_file") 2>/dev/null || true
+			kill -TERM "$probe_pid" 2>/dev/null || true
+			wait "$probe_pid" 2>/dev/null || true
+			rm -f "$probe_status_file" "$probe_start_file" "$probe_go_file" "$probe_cancel_file"
+			return 1
+		fi
+		probe_attempt=$((probe_attempt + 1))
+		sleep 0.1
+	done
+	probe_group_id=$(process_group_id "$probe_pid" || true)
+	probe_identity=$(process_identity "$probe_pid" || true)
+	[ -n "$probe_group_id" ] && [ -n "$probe_identity" ] || {
+		(umask 077 && : >"$probe_cancel_file") 2>/dev/null || true
+		kill -TERM "$probe_pid" 2>/dev/null || true
+		wait "$probe_pid" 2>/dev/null || true
+		rm -f "$probe_status_file" "$probe_start_file" "$probe_go_file" "$probe_cancel_file"
+		return 1
+	}
+	capture_process_tree "$probe_pid"
+	probe_records=$captured_process_records
+	set +m
+	(umask 077 && : >"$probe_go_file") || {
+		kill -TERM "$probe_pid" 2>/dev/null || true
+		wait "$probe_pid" 2>/dev/null || true
+		rm -f "$probe_status_file" "$probe_start_file" "$probe_go_file" "$probe_cancel_file"
+		return 1
+	}
+	probe_attempt=0
+	while [ ! -s "$probe_status_file" ]; do
+		if ! kill -0 "$probe_pid" 2>/dev/null; then
+			wait "$probe_pid" 2>/dev/null || true
+			rm -f "$probe_status_file" "$probe_start_file" "$probe_go_file" "$probe_cancel_file"
+			return 1
+		fi
+		if [ "$probe_attempt" -ge 30 ]; then
+			shutdown_process "$probe_pid" 10 0 '' "$probe_identity" "$probe_records"
+			reap_stopped_process "$probe_pid"
+			rm -f "$probe_status_file" "$probe_start_file" "$probe_go_file" "$probe_cancel_file"
+			return 1
+		fi
+		probe_attempt=$((probe_attempt + 1))
+		sleep 1
+	done
+	probe_status=$(sed -n '1p' "$probe_status_file")
+	wait "$probe_pid" 2>/dev/null || true
+	probe_saved_baseline_file=$running_group_baseline_file
+	running_group_baseline_file=
+	if ! process_group_isolated "$probe_group_id"; then
+		running_group_baseline_file=$probe_baseline_file
+	fi
+	probe_drain_status=0
+	if ! drain_tracked_process "$probe_pid" "$probe_group_id" "$probe_identity" "$probe_records"; then
+		probe_drain_status=1
+	fi
+	running_group_baseline_file=$probe_saved_baseline_file
+	[ -z "$probe_baseline_file" ] || rm -f "$probe_baseline_file" "$probe_baseline_file.members"
+	if [ "$probe_drain_status" -ne 0 ]; then
+		rm -f "$probe_status_file" "$probe_start_file" "$probe_go_file" "$probe_cancel_file"
+		return 1
+	fi
+	rm -f "$probe_status_file" "$probe_start_file" "$probe_go_file" "$probe_cancel_file"
+	[ "$probe_status" -eq 0 ]
+}
+
+cleanup() {
+	status=$?
+	cleanup_status=0
+	trap - EXIT
+	trap ':' HUP INT TERM
+	[ -e "$run_operation_marker" ] && operation_ambiguous=1
+	if [ "$owned" -eq 1 ] && [ "$operation_ambiguous" -eq 0 ]; then
+		cleanup_baseline_file=
+		cleanup_parent_group=$(process_group_id "$$" || true)
+		if [ -n "$cleanup_parent_group" ]; then
+			cleanup_baseline_file=$(mktemp "$run/cleanup-group-baseline.XXXXXX" || true)
+			if [ -n "$cleanup_baseline_file" ]; then
+				cleanup_baseline_status=0
+				pgrep -g "$cleanup_parent_group" >"$cleanup_baseline_file.members" 2>/dev/null ||
+					cleanup_baseline_status=$?
+				if [ "$cleanup_baseline_status" -gt 1 ]; then
+					rm -f "$cleanup_baseline_file" "$cleanup_baseline_file.members"
+					cleanup_baseline_file=
+				else
+					: >"$cleanup_baseline_file" || cleanup_baseline_file=
+					if [ -n "$cleanup_baseline_file" ]; then
+						while IFS= read -r cleanup_baseline_member; do
+							[ -n "$cleanup_baseline_member" ] || continue
+							cleanup_baseline_identity=$(process_identity "$cleanup_baseline_member" || true)
+							if [ -n "$cleanup_baseline_identity" ]; then
+								printf '%s/%s\n' "$cleanup_baseline_member" "$cleanup_baseline_identity" >>"$cleanup_baseline_file"
+							elif kill -0 "$cleanup_baseline_member" 2>/dev/null; then
+								rm -f "$cleanup_baseline_file" "$cleanup_baseline_file.members"
+								cleanup_baseline_file=
+								break
+							fi
+						done <"$cleanup_baseline_file.members"
+					fi
+				[ -z "$cleanup_baseline_file" ] || rm -f "$cleanup_baseline_file.members"
+				fi
+			fi
+		fi
+		cleanup_status_file=$run/cleanup.status
+		set -m
+		(
+			if (cd "$root" && env -u COMPOSE_PROJECT_NAME DANS_DEV_STACK_LOCK_OWNER="$lock_file" \
+				DANS_DEV_PROJECT_LOCK_HELD=1 DANS_DEV_PROJECT_LOCK_OWNER="$project_lock_file" \
+				make reset CONFIRM=1); then
+				printf '%s\n' 0 >"$cleanup_status_file"
+			else
+				cleanup_command_status=$?
+				printf '%s\n' "$cleanup_command_status" >"$cleanup_status_file"
+			fi
+		) >"$run/cleanup.out" 2>"$run/cleanup.err" &
+		cleanup_pid=$!
+		cleanup_group_id=$(process_group_id "$cleanup_pid" || true)
+		cleanup_identity=$(process_identity "$cleanup_pid" || true)
+		capture_process_tree "$cleanup_pid"
+		cleanup_records=$captured_process_records
+		set +m
+		cleanup_attempt=0
+		while [ ! -s "$cleanup_status_file" ]; do
+			if ! kill -0 "$cleanup_pid" 2>/dev/null; then
+				cleanup_status=1
+				break
+			fi
+			if [ "$cleanup_attempt" -ge 60 ]; then
+				shutdown_process "$cleanup_pid" 10 0 '' "$cleanup_identity" "$cleanup_records"
+				cleanup_status=1
+				break
+			fi
+			cleanup_attempt=$((cleanup_attempt + 1))
+			sleep 1
+		done
+		if [ "$cleanup_status" -eq 0 ]; then
+			if [ -s "$cleanup_status_file" ]; then
+				cleanup_status=$(sed -n '1p' "$cleanup_status_file")
+			fi
+		fi
+		cleanup_exit_attempt=0
+		while process_running "$cleanup_pid"; do
+			[ "$cleanup_exit_attempt" -lt 30 ] || break
+			cleanup_exit_attempt=$((cleanup_exit_attempt + 1))
+			sleep 0.1
+		done
+		if process_running "$cleanup_pid"; then
+			cleanup_status=1
+			operation_ambiguous=1
+			printf '%s\n' 'dev lifecycle: cleanup worker did not stop within the bounded wait' >&2
+		else
+			wait "$cleanup_pid" 2>/dev/null || true
+			reap_stopped_process "$cleanup_pid"
+		fi
+		cleanup_saved_baseline_file=$running_group_baseline_file
+		running_group_baseline_file=
+		if ! process_group_isolated "$cleanup_group_id"; then
+			running_group_baseline_file=$cleanup_baseline_file
+		fi
+		if [ "$cleanup_status" -eq 0 ] &&
+			! drain_tracked_process "$cleanup_pid" "$cleanup_group_id" "$cleanup_identity" "$cleanup_records"; then
+			cleanup_status=1
+		fi
+		running_group_baseline_file=$cleanup_saved_baseline_file
+		[ -z "$cleanup_baseline_file" ] || rm -f "$cleanup_baseline_file" "$cleanup_baseline_file.members"
+		if [ "$cleanup_status" -eq 0 ] &&
+			{ [ -e "$root/.dans/dev" ] || [ -e "$project_file" ]; }; then
+			cleanup_status=1
+		fi
+		if [ "$cleanup_status" -eq 0 ]; then
+			if ! cleanup_probe cleanup-containers compose ps -aq; then
+				cleanup_status=1
+			elif [ -n "$(cat "$run/cleanup-containers.out")" ]; then
+				cleanup_status=1
+			fi
+		fi
+		if [ "$cleanup_status" -eq 0 ]; then
+			if ! cleanup_probe cleanup-volumes docker volume ls -q \
+				--filter "label=com.docker.compose.project=$project"; then
+				cleanup_status=1
+			elif [ -n "$(cat "$run/cleanup-volumes.out")" ]; then
+				cleanup_status=1
+			fi
+		fi
+		if [ "$cleanup_status" -eq 0 ]; then
+			rm -f "$ownership_marker"
+			rmdir "$root/.dans" 2>/dev/null || cleanup_status=$?
+		fi
+		if [ "$cleanup_status" -ne 0 ]; then
+			operation_ambiguous=1
+			printf '%s\n' "dev lifecycle: cleanup failed (status $cleanup_status); owned resources may remain" >&2
+			sanitize_failure cleanup >&2
+		fi
+	elif [ "$owned" -eq 1 ]; then
+		cleanup_status=1
+		printf '%s\n' 'dev lifecycle: cleanup skipped after an interrupted Docker operation; inspect the retained state and locks before recovery' >&2
+	fi
+	[ -e "$run_operation_marker" ] && operation_ambiguous=1
+	rm -rf "$run"
+	[ "$operation_ambiguous" -eq 0 ] || [ "$status" -ge 128 ] || status=125
+	[ "$status" -ne 0 ] || [ "$cleanup_status" -eq 0 ] || status=1
+	mark_worker_done
+	exit "$status"
+}
 running_pid=
 running_group_id=
 running_identity=
@@ -1002,29 +1102,23 @@ running_launch_capture_stderr=1
 running_group_baseline_file=
 launching=0
 pending_signal=0
-capture_output_file=
-capture_error_file=
-project_temp=
-token_temp=
-forward_signal() {
-	status=$1
+operation_ambiguous=0
+lifecycle_signal() {
 	if [ "$launching" -eq 1 ]; then
 		pending_signal=1
 		return
 	fi
-	trap ':' HUP INT TERM
+	trap '' HUP INT TERM
 	mark_operation_uncertain
 	if [ -n "${running_pid:-}" ]; then
+		operation_ambiguous=1
 		shutdown_process "$running_pid" 10 0 "${running_group_id:-}" "${running_identity:-}" "${running_records:-}"
-	else
-		shutdown_descendants "$$"
 	fi
 	clear_stopped_supervised_launch
-	[ -z "$capture_output_file" ] || rm -f "$capture_output_file"
-	[ -z "$capture_error_file" ] || rm -f "$capture_error_file"
-	exit "$status"
+	exit 143
 }
-trap 'forward_signal 143' HUP INT TERM
+trap cleanup EXIT
+trap lifecycle_signal HUP INT TERM
 
 running_processes_drained() {
 	for tracked_record in $running_records; do
@@ -1077,10 +1171,6 @@ running_group_drained() {
 				if process_is_descendant "$running_pid" "$running_group_member"; then
 					running_group_operation_member=1
 				else
-					[ -n "$(process_parent "$running_group_member" || true)" ] || {
-						rm -f "$running_group_file"
-						return 1
-					}
 					for tracked_record in $running_records; do
 						[ "${tracked_record%%/*}" = "$running_group_member" ] || continue
 						[ "${tracked_record#*/}" = "$running_group_identity" ] || continue
@@ -1094,8 +1184,8 @@ running_group_drained() {
 				fi
 				running_group_operation_seen=1
 			fi
-		done <"$running_group_file"
-		rm -f "$running_group_file"
+			done <"$running_group_file"
+			rm -f "$running_group_file"
 		[ "${running_group_operation_seen:-0}" -eq 0 ]
 		return $?
 	fi
@@ -1167,6 +1257,26 @@ drain_running_processes() {
 	fi
 	terminate_running_group || return 1
 	return 1
+}
+
+drain_tracked_process() {
+	drain_saved_pid=${running_pid:-}
+	drain_saved_group_id=${running_group_id:-}
+	drain_saved_identity=${running_identity:-}
+	drain_saved_records=${running_records:-}
+	running_pid=$1
+	running_group_id=$2
+	running_identity=$3
+	running_records=$4
+	drain_status=0
+	if ! drain_running_processes; then
+		drain_status=1
+	fi
+	running_pid=$drain_saved_pid
+	running_group_id=$drain_saved_group_id
+	running_identity=$drain_saved_identity
+	running_records=$drain_saved_records
+	return "$drain_status"
 }
 
 clear_supervised_launch() {
@@ -1262,7 +1372,7 @@ cancel_supervised_launch() {
 launch_supervised() {
 	# Detached/daemonizing launchers are unsupported; keep the foreground allowlist explicit.
 	case "${1:-}:${2:-}" in
-		docker:compose|sh:-c) ;;
+		docker:compose|docker:volume|sh:-c) ;;
 		*) return 1 ;;
 	esac
 	running_launch_capture_stderr=1
@@ -1500,20 +1610,40 @@ release_supervised_launch() {
 	[ -z "${running_pid:-}" ] || wait "$running_pid" 2>/dev/null || true
 }
 
+sanitize_failure() {
+	phase=$1
+	for file in "$run/$phase.out" "$run/$phase.err"; do
+		[ -f "$file" ] || continue
+		sed -E \
+			-e 's/Console token: .*/Console token: [redacted]/' \
+			-e 's/(DANS_API_TOKEN=)[^[:space:]]+/\1[redacted]/g' \
+			-e 's/dans_v1_[A-Za-z0-9_-]+/[credential-redacted]/g' \
+			"$file" | grep -E '^(dev stack:|host (HTTP|DNS)|DANS API returned|make: \*\*)' || true
+	done
+}
+
+for command in awk chmod cksum curl dig docker id jq ls make mkdir mkfifo mktemp pgrep ps sed stat tee tr; do
+	command -v "$command" >/dev/null 2>&1 || fail "missing required command $command"
+done
+
+[ -z "${COMPOSE_PROJECT_NAME:-}" ] || fail 'COMPOSE_PROJECT_NAME must not override checkout ownership'
+[ ! -e "$root/.dans" ] && [ ! -L "$root/.dans" ] ||
+	fail 'checkout already has local development state'
+
 compose() {
 	[ -z "$operation_marker" ] || [ ! -e "$operation_marker" ] || return 125
 	pending_signal=0
 	launching=1
 	set -m
 	if [ -t 0 ]; then
-		if ! launch_supervised docker compose --file "$compose_file" "$@" </dev/null; then
+		if ! launch_supervised docker compose --project-name "$project" --file "$root/compose.yaml" "$@" </dev/null; then
 			launching=0
 			mark_operation_uncertain
 			return 125
 		fi
 	else
 		exec 3<&0
-		if ! launch_supervised docker compose --file "$compose_file" "$@" <&3; then
+		if ! launch_supervised docker compose --project-name "$project" --file "$root/compose.yaml" "$@" <&3; then
 			exec 3<&-
 			launching=0
 			mark_operation_uncertain
@@ -1524,7 +1654,7 @@ compose() {
 	running_records=$captured_process_records
 	set +m
 	launching=0
-	[ "$pending_signal" -eq 0 ] || forward_signal 143
+	[ "$pending_signal" -eq 0 ] || lifecycle_signal
 	if wait_supervised; then
 		rc=0
 	else
@@ -1532,6 +1662,7 @@ compose() {
 	fi
 	if ! drain_running_processes; then
 		mark_operation_uncertain
+		operation_ambiguous=1
 		cancel_supervised_launch
 		running_pid=
 		running_group_id=
@@ -1553,55 +1684,14 @@ compose() {
 	return "$rc"
 }
 
-json_string() {
-	field=$1
-	value=$(sed -n 's/.*"'"$field"'":"\([^"]*\)".*/\1/p')
-	[ -n "$value" ] || die "response omitted $field"
-	printf '%s\n' "$value"
-}
-
-json_bool() {
-	field=$1
-	value=$(sed -n \
-		's/.*"'"$field"'":true.*/true/p; s/.*"'"$field"'":false.*/false/p')
-	[ -n "$value" ] || die "response omitted $field"
-	printf '%s\n' "$value"
-}
-
-wait_postgres() {
-	attempt=0
-	until compose exec -T postgres pg_isready -U dans_ddl -d dans >/dev/null 2>&1; do
-		[ -n "$operation_marker" ] && [ -e "$operation_marker" ] && exit 125
-		attempt=$((attempt + 1))
-		[ "$attempt" -lt 60 ] || die 'PostgreSQL did not become ready'
-		sleep 1
-	done
-}
-
-wait_ready() {
-	attempt=0
-	# `dans health ready` calls the public /readyz endpoint.
-	until compose exec -T dans /usr/local/bin/dans health ready >/dev/null 2>&1; do
-		[ -n "$operation_marker" ] && [ -e "$operation_marker" ] && exit 125
-		attempt=$((attempt + 1))
-		[ "$attempt" -lt 60 ] || die 'DANS did not become ready'
-		sleep 1
-	done
-}
-
-offline_capture() {
-	[ -z "$operation_marker" ] || [ ! -e "$operation_marker" ] || return 125
-	output_file=$1
-	error_file=$2
-	shift 2
-	capture_output_file=$output_file
-	capture_error_file=$error_file
+volume_query() {
+	volume_output=$1
+	volume_error=$2
 	pending_signal=0
 	launching=1
 	set -m
-	if ! launch_supervised docker compose --file "$compose_file" run --rm --no-deps -T \
-		-e DANS_DATABASE_URL="$runtime_url" -e DANS_OUTPUT=json dans "$@" \
-		</dev/null >"$output_file" 2>"$error_file"; then
+	if ! launch_supervised docker volume ls -q --filter "label=com.docker.compose.project=$project" \
+		>"$volume_output" 2>"$volume_error"; then
 		launching=0
 		mark_operation_uncertain
 		return 125
@@ -1609,7 +1699,7 @@ offline_capture() {
 	running_records=$captured_process_records
 	set +m
 	launching=0
-	[ "$pending_signal" -eq 0 ] || forward_signal 143
+	[ "$pending_signal" -eq 0 ] || lifecycle_signal
 	if wait_supervised; then
 		rc=0
 	else
@@ -1617,6 +1707,7 @@ offline_capture() {
 	fi
 	if ! drain_running_processes; then
 		mark_operation_uncertain
+		operation_ambiguous=1
 		cancel_supervised_launch
 		running_pid=
 		running_group_id=
@@ -1629,7 +1720,6 @@ offline_capture() {
 		cancel_supervised_launch
 		return 125
 	}
-	[ "$rc" -ge 128 ] && mark_operation_uncertain
 	clear_supervised_launch
 	running_pid=
 	running_group_id=
@@ -1638,423 +1728,376 @@ offline_capture() {
 	return "$rc"
 }
 
-capture_temp() {
-	capture_prefix=$1
-	capture_path=$(mktemp "$credential_dir/$capture_prefix.XXXXXX") ||
-		die 'could not create private development capture file'
-	chmod 600 "$capture_path" || {
-		rm -f "$capture_path"
-		die 'could not secure private development capture file'
+if ! compose ps -aq >"$run/preflight.containers" 2>"$run/preflight.err"; then
+	fail 'could not establish whether the checkout project has containers'
+fi
+[ ! -s "$run/preflight.containers" ] || {
+	fail 'checkout project already has containers'
+}
+if ! volume_query "$run/preflight.volumes" "$run/preflight-volumes.err"; then
+	fail 'could not establish whether the checkout project has volumes'
+fi
+[ ! -s "$run/preflight.volumes" ] ||
+	fail 'checkout project already has volumes'
+
+port_base=$((39000 + ($$ % 1000) * 2))
+export DANS_DEV_HTTP_PORT=${DANS_DEV_HTTP_PORT:-$port_base}
+export DANS_DEV_DNS_PORT=${DANS_DEV_DNS_PORT:-$((port_base + 1))}
+
+run_make() {
+	run_make_count=$((run_make_count + 1))
+	run_completion_marker=$run/make-complete-$run_make_count
+	rm -f "$run_completion_marker"
+	pending_signal=0
+	launching=1
+	set -m
+	if ! launch_supervised sh -c '
+		make_root=$1
+		shift
+		stack_lock=$1
+		shift
+		project_lock=$1
+		shift
+		operation_marker=$1
+		shift
+		completion_marker=$1
+		shift
+		cd "$make_root" && env -u COMPOSE_PROJECT_NAME DANS_DEV_STACK_LOCK_OWNER="$stack_lock" \
+			DANS_DEV_PROJECT_LOCK_HELD=1 DANS_DEV_PROJECT_LOCK_OWNER="$project_lock" \
+			DANS_DEV_OPERATION_MARKER="$operation_marker" \
+			DANS_DEV_COMPLETION_MARKER="$completion_marker" make "$@"
+	' dans-lifecycle-make "$root" "$lock_file" "$project_lock_file" \
+		"$run_operation_marker" "$run_completion_marker" "$@"; then
+		launching=0
+		mark_operation_uncertain
+		return 125
+	fi
+	running_records=$captured_process_records
+	set +m
+	launching=0
+	[ "$pending_signal" -eq 0 ] || lifecycle_signal
+	if wait_supervised; then
+		rc=0
+	else
+		rc=$?
+	fi
+	if ! drain_running_processes; then
+		mark_operation_uncertain
+		operation_ambiguous=1
+		cancel_supervised_launch
+		running_pid=
+		running_group_id=
+		running_identity=
+		running_records=
+		return 125
+	fi
+	release_supervised_launch || {
+		mark_operation_uncertain
+		cancel_supervised_launch
+		return 125
 	}
-	case "$capture_prefix" in
-		*-output) capture_output_file=$capture_path ;;
-		*-error) capture_error_file=$capture_path ;;
-	esac
+	[ -e "$run_operation_marker" ] && operation_ambiguous=1
+	[ -e "$run_completion_marker" ] || operation_ambiguous=1
+	[ "$rc" -ge 128 ] && operation_ambiguous=1
+	clear_supervised_launch
+	running_pid=
+	running_group_id=
+	running_identity=
+	running_records=
+	return "$rc"
 }
 
-cleanup_captures() {
-	clear_stopped_supervised_launch
-	[ -z "$capture_output_file" ] || rm -f "$capture_output_file"
-	[ -z "$capture_error_file" ] || rm -f "$capture_error_file"
-	[ -z "$project_temp" ] || rm -f "$project_temp"
-	[ -z "$token_temp" ] || rm -f "$token_temp"
-	mark_operation_complete
-	mark_worker_done
-}
-trap cleanup_captures EXIT
-
-validate_identity() {
-	response=$1
-	handle=$(printf '%s\n' "$response" | json_string handle)
-	enabled=$(printf '%s\n' "$response" | json_bool enabled)
-	operator=$(printf '%s\n' "$response" | json_bool operator)
-	[ "$handle" = dev-operator ] || return 1
-	[ "$enabled" = true ] || return 1
-	[ "$operator" = true ] || return 1
+claim_ownership() {
+	mkdir -p "$root/.dans"
+	(umask 077 && printf '%s\n' "$project" >"$ownership_marker")
+	chmod 600 "$ownership_marker"
 }
 
-validate_credential() {
-	token=$1
-	if response=$(cli_with_token "$token" me get 2>&1); then
-		validate_identity "$response" || {
-			printf '%s\n' 'dev stack: credential belongs to an unexpected identity' >&2
-			return 1
-		}
-		return 0
+clear_ownership() {
+	rm -f "$ownership_marker"
+	rmdir "$root/.dans" 2>/dev/null || true
+	[ ! -e "$root/.dans" ] && [ ! -L "$root/.dans" ] ||
+		fail 'lifecycle ownership marker could not be removed'
+}
+
+run_phase() {
+	phase=$1
+	shift
+	if "$@" >"$run/$phase.out" 2>"$run/$phase.err"; then
+		printf '%s\n' "dev lifecycle: $phase ok"
 	else
 		status=$?
-		if [ "$status" -eq 1 ] && printf '%s\n' "$response" | grep -Fq '401 Unauthorized'; then
-			return 10
-		fi
-		printf '%s\n' 'dev stack: credential validation failed' >&2
+		printf '%s\n' "dev lifecycle: $phase failed (status $status)" >&2
+		sanitize_failure "$phase" >&2
+		return "$status"
+	fi
+}
+
+expect_failure() {
+	phase=$1
+	expected_status=$2
+	expected_message=$3
+	shift 3
+	if "$@" >"$run/$phase.out" 2>"$run/$phase.err"; then
+		printf '%s\n' "dev lifecycle: $phase unexpectedly succeeded" >&2
+		return 1
+	else
+		status=$?
+	fi
+	[ "$status" -eq "$expected_status" ] || {
+		printf '%s\n' "dev lifecycle: $phase exited $status, want $expected_status" >&2
+		return 1
+	}
+	if ! grep -Fq "$expected_message" "$run/$phase.out" "$run/$phase.err"; then
+		printf '%s\n' "dev lifecycle: $phase omitted its expected diagnostic" >&2
 		return 1
 	fi
+	printf '%s\n' "dev lifecycle: $phase rejected as expected"
 }
 
-publish_credential() {
-	credential=$1
-	secret=$(printf '%s\n' "$credential" | json_string secret)
-	validate_credential "$secret" || die 'issued credential failed validation'
-	rm -f "$token_file.tmp"
-	token_temp=$(mktemp "$credential_dir/operator-token.XXXXXX") ||
-		die 'could not create private development token file'
-	if ! (umask 077; printf '%s\n' "$secret" >"$token_temp"); then
-		rm -f "$token_temp"
-		token_temp=
-		die 'write operator token failed'
-	fi
-	if ! chmod 600 "$token_temp"; then
-		rm -f "$token_temp"
-		token_temp=
-		die 'secure operator token failed'
-	fi
-	if ! mv "$token_temp" "$token_file"; then
-		rm -f "$token_temp"
-		token_temp=
-		die 'install operator token failed'
-	fi
-	token_temp=
-	rm -f "$token_file.tmp"
+read_token() {
+	sed -n '1p' "$token_file"
 }
 
-ensure_token() {
-	if [ -s "$token_file" ]; then
-		token=$(sed -n '1p' "$token_file")
-		if validate_credential "$token"; then
-			chmod 600 "$token_file"
-			return
-		else
-			status=$?
-			[ "$status" -eq 10 ] || die 'cached operator credential is unusable'
-		fi
-	fi
-	recovery_label=local-recovery-$(date +%s)-$$
-	capture_temp recovery-output
-	recovery_output=$capture_path
-	capture_temp recovery-error
-	recovery_error=$capture_path
-	if offline_capture "$recovery_output" "$recovery_error" recover operator-token \
-		--handle dev-operator --token-label "$recovery_label"; then
-		credential=$(cat "$recovery_output")
-		rm -f "$recovery_output" "$recovery_error"
-		capture_output_file=
-		capture_error_file=
-	else
-		recovery_status=$?
-		if [ "$recovery_status" -ge 128 ]; then
-			cat "$recovery_error" >&2
-			rm -f "$recovery_output" "$recovery_error"
-			capture_output_file=
-			capture_error_file=
-			printf '%s\n' 'dev stack: credential recovery was interrupted; the operation may still be active' >&2
-			exit "$recovery_status"
-		fi
-		cat "$recovery_error" >&2
-		rm -f "$recovery_output" "$recovery_error"
-		capture_output_file=
-		capture_error_file=
-		die 'operator credential recovery failed'
-	fi
-	publish_credential "$credential"
+save_token() {
+	name=$1
+	cp "$token_file" "$run/$name.token"
+	chmod 600 "$run/$name.token"
 }
 
-cli_with_token() {
+token_mode() {
+	stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1"
+}
+
+assert_token() {
+	[ -s "$token_file" ] || fail 'operator credential is missing'
+	[ "$(token_mode "$token_file")" = 600 ] || fail 'operator credential is not mode 600'
+}
+
+assert_identity() {
+	file=$1
+	jq -e '.handle == "dev-operator" and .enabled == true and .operator == true' \
+		"$file" >/dev/null 2>&1 || fail 'operator identity is not the expected enabled operator'
+}
+
+assert_operator_identity() {
+	file=$1
+	expected_id=$2
+	jq -e --arg id "$expected_id" \
+		'.id == $id and .handle == "dev-operator" and .enabled == true and .operator == true' \
+		"$file" >/dev/null 2>&1 || fail 'original operator identity was not preserved'
+}
+
+assert_smoke_identity() {
 	token=$1
+	phase=$2
+	run_phase "$phase" cli "$token" identities list
+	if ! jq -e --arg id "$identity_id" --arg handle "$identity" \
+		'any(.items[]; .id == $id and .handle == $handle and .enabled == true and .operator == false)' \
+		"$run/$phase.out" >/dev/null 2>&1; then
+		fail 'original smoke identity is missing or changed'
+	fi
+}
+
+cli() {
+	auth_token=$1
 	shift
 	compose exec -T \
 		-e DANS_ENDPOINT=http://127.0.0.1:8080/api/v1 \
-		-e DANS_API_TOKEN="$token" -e DANS_OUTPUT=json \
+		-e DANS_API_TOKEN="$auth_token" -e DANS_OUTPUT=json \
 		dans /usr/local/bin/dans "$@"
 }
 
-operator_cli() {
-	[ -s "$token_file" ] || die 'operator token is missing; run make up'
-	token=$(sed -n '1p' "$token_file")
-	cli_with_token "$token" "$@"
+assert_project() {
+	[ -s "$project_file" ] || fail 'Compose project ownership was not recorded'
+	[ "$(sed -n '1p' "$project_file")" = "$project" ] || fail 'Compose project ownership changed'
 }
 
-operator_data() {
-	body=$1
-	shift
-	printf '%s\n' "$body" | operator_cli "$@" --data=-
+assert_zone() {
+	token=$1
+	phase=$2
+	run_phase "$phase" cli "$token" zones list
+	jq -e --arg zone "$zone" 'any(.[]; .name == $zone)' \
+		"$run/$phase.out" >/dev/null 2>&1 || fail 'original DNS zone is missing'
 }
 
-host_prerequisites() {
-	for command in curl dig; do
-		command -v "$command" >/dev/null 2>&1 || die "make smoke-host requires host command $command"
+assert_audit_count() {
+	token=$1
+	phase=$2
+	run_phase "$phase" cli "$token" audit list --action powerdns.zone.patch --result succeeded
+	count=$(jq -er '.items | length' "$run/$phase.out" 2>/dev/null) || fail 'audit history could not be read'
+	[ "$count" -ge "$audit_count" ] || fail 'audit history was lost'
+	for audit_id in $audit_ids; do
+		jq -e --arg id "$audit_id" 'any(.items[]; .id == $id)' \
+			"$run/$phase.out" >/dev/null 2>&1 || fail 'original audit event was lost'
 	done
 }
 
-host_published_port() {
-	service=$1
-	private_port=$2
-	protocol=${3:-}
-	if [ -n "$protocol" ]; then
-		if ! mapping=$(compose port --protocol "$protocol" "$service" "$private_port" 2>/dev/null); then
-			die "host port lookup failed for $service $private_port"
-		fi
-	else
-		if ! mapping=$(compose port "$service" "$private_port" 2>/dev/null); then
-			die "host port lookup failed for $service $private_port"
-		fi
-	fi
-	[ -n "$mapping" ] ||
-		die "host port lookup failed for $service $private_port"
-	port=${mapping##*:}
-	case "$port" in
-		''|*[!0-9]*) die "host port lookup returned an invalid port for $service $private_port" ;;
-	esac
-	printf '%s\n' "$port"
+assert_dns() {
+	answer=$(dig @127.0.0.1 -p "$DANS_DEV_DNS_PORT" +time=2 +tries=1 +noall +answer \
+		"$allowed" A 2>/dev/null) || fail 'original DNS query failed'
+	printf '%s\n' "$answer" | awk '$1 == owner && $4 == "A" && $5 == "192.0.2.10" { found=1 } END { exit found ? 0 : 1 }' owner="$allowed" ||
+		fail 'original DNS answer was lost'
 }
 
-host_http_probe() {
-	url=$1
-	expected_status=$2
-	expected_body=$3
-	response=$(mktemp "${TMPDIR:-/tmp}/dans-host-http.XXXXXX") ||
-		die 'host HTTP probe could not create a temporary response file'
-	if ! status=$(curl --noproxy '*' --connect-timeout 2 --max-time 5 --silent --show-error \
-		--output "$response" --write-out '%{http_code}' "$url" 2>/dev/null); then
-		rm -f "$response"
-		die "host HTTP probe failed (url $url)"
-	fi
-	if [ "$status" != "$expected_status" ]; then
-		rm -f "$response"
-		die "host HTTP probe returned status $status (url $url)"
-	fi
-	case "$expected_body" in
-		empty)
-		if [ -s "$response" ]; then
-			rm -f "$response"
-			die "host HTTP probe returned unexpected content (url $url)"
-		fi
-		;;
-	*)
-		if ! grep -Fq "$expected_body" "$response"; then
-			rm -f "$response"
-			die "host HTTP probe returned unexpected content (url $url)"
-		fi
-		;;
-	esac
-	rm -f "$response"
-}
-
-host_dns_probe() {
-	transport=$1
-	owner=$2
-	value=$3
-	dns_port=$(host_published_port powerdns 53 "$transport")
-	case "$transport" in
-		udp) transport_options='+notcp' ;;
-		tcp) transport_options='+tcp' ;;
-		*) die "host DNS probe has unknown transport $transport" ;;
-	esac
-	if ! answer=$(dig @127.0.0.1 -p "$dns_port" +time=2 +tries=1 +norecurse \
-		+noedns +ignore +noall +comments +answer "$transport_options" "$owner" A 2>/dev/null); then
-		die "host DNS $transport probe failed (port $dns_port)"
-	fi
-	printf '%s\n' "$answer" | grep -Fq 'status: NOERROR' ||
-		die "host DNS $transport probe returned a non-success status (port $dns_port)"
-	if printf '%s\n' "$answer" | grep -Eq '^;; flags:.*(^|[[:space:]])tc([;[:space:]]|$)'; then
-		die "host DNS $transport probe returned a truncated response (port $dns_port)"
-	fi
-	printf '%s\n' "$answer" | grep -Eq '^;; flags:.*(^|[[:space:]])aa([;[:space:]]|$)' ||
-		die "host DNS $transport probe was not authoritative (port $dns_port)"
-	printf '%s\n' "$answer" | awk -v owner="$owner" -v value="$value" \
-		'$1 == owner && $4 == "A" && $5 == value { found = 1 } END { exit found ? 0 : 1 }' ||
-		die "host DNS $transport probe returned the wrong answer (port $dns_port)"
-}
-
-host_smoke() {
-	owner=$1
-	value=$2
-	http_port=$(host_published_port dans 8080)
-	http_root=http://127.0.0.1:$http_port
-	host_http_probe "$http_root/readyz" 200 empty
-	host_http_probe "$http_root/console/" 200 '<div id="root">'
-	host_dns_probe udp "$owner" "$value"
-	host_dns_probe tcp "$owner" "$value"
-}
-
-up() {
-	(umask 077 && mkdir -p "$credential_dir") ||
-		die 'could not create private development state directory'
-	chmod 700 "$root/.dans" "$credential_dir" ||
-		die 'could not secure private development state directory'
-	validate_local_state 1
-	if [ ! -s "$project_file" ]; then
-		project_temp=$(mktemp "$credential_dir/compose-project.XXXXXX") ||
-			die 'could not create private development project file'
-		if ! (umask 077; printf '%s\n' "$COMPOSE_PROJECT_NAME" >"$project_temp"); then
-			rm -f "$project_temp"
-			project_temp=
-			die 'could not write private development project file'
-		fi
-		chmod 600 "$project_temp" || {
-			rm -f "$project_temp"
-			project_temp=
-			die 'could not secure private development project file'
-		}
-		mv "$project_temp" "$project_file" || {
-			rm -f "$project_temp"
-			project_temp=
-			die 'could not install private development project file'
-		}
-		project_temp=
-	fi
-	compose build dans
-	compose up --detach postgres powerdns
-	wait_postgres
-	compose run --rm --no-deps -T -e DANS_DATABASE_URL="$ddl_url" \
-		-e DANS_OUTPUT=json dans db migrate >/dev/null
-	compose exec -T postgres psql -X -v ON_ERROR_STOP=1 -U dans_ddl -d dans \
-		--set=database_name=dans --set=schema_name=public \
-		--set=runtime_role=dans_runtime --file=/dans/runtime.sql >/dev/null
-	capture_temp bootstrap-output
-	bootstrap_output=$capture_path
-	capture_temp bootstrap-error
-	bootstrap_error=$capture_path
-	if offline_capture "$bootstrap_output" "$bootstrap_error" bootstrap \
-		--handle dev-operator --display-name 'Dev operator' --token-label local; then
-		bootstrap_candidate=$(cat "$bootstrap_output")
-		rm -f "$bootstrap_output" "$bootstrap_error"
-		capture_output_file=
-		capture_error_file=
-	else
-		bootstrap_status=$?
-		if [ "$bootstrap_status" -ge 128 ]; then
-			cat "$bootstrap_error" >&2
-			rm -f "$bootstrap_output" "$bootstrap_error"
-			capture_output_file=
-			capture_error_file=
-			printf '%s\n' 'dev stack: bootstrap was interrupted; the operation may still be active' >&2
-			exit "$bootstrap_status"
-		fi
-		if ! grep -Fq 'database: conflict' "$bootstrap_error"; then
-			cat "$bootstrap_error" >&2
-			rm -f "$bootstrap_output" "$bootstrap_error"
-			capture_output_file=
-			capture_error_file=
-			die 'bootstrap failed'
-		fi
-		rm -f "$bootstrap_output" "$bootstrap_error"
-		capture_output_file=
-		capture_error_file=
-		bootstrap_candidate=
-	fi
-	compose up --detach dans
-	wait_ready
-	if [ -n "$bootstrap_candidate" ]; then
-		publish_credential "$bootstrap_candidate"
-	else
-		ensure_token
-	fi
-	printf '%s\n' \
-		"DANS: http://127.0.0.1:${DANS_DEV_HTTP_PORT:-8080}" \
-		"DNS:  127.0.0.1:${DANS_DEV_DNS_PORT:-1053}" \
-		"Console: http://localhost:${DANS_DEV_HTTP_PORT:-8080}/console/" \
-		"Console token: $(sed -n '1p' "$token_file")"
-}
-
-smoke() {
-	host_access=0
-	if [ "${1:-}" = host ]; then
-		host_access=1
-		host_prerequisites
-	fi
-	compose ps --status running --services | grep -Fxq dans || die 'DANS is not running; run make up'
-	wait_ready
-	suffix=$(date +%s)-$$
-	handle=smoke-$suffix
-	zone=smoke-$suffix.test.
-	allowed=allowed.$zone
-	denied=denied.$zone
-
-	identity=$(operator_data "{\"kind\":\"service\",\"handle\":\"$handle\",\"display_name\":\"Smoke service\"}" identities create)
-	identity_id=$(printf '%s\n' "$identity" | json_string id)
-	credential=$(operator_data '{"label":"smoke"}' identities tokens create "$identity_id")
-	service_token=$(printf '%s\n' "$credential" | json_string secret)
-	created_zone=$(operator_data "{\"name\":\"$zone\",\"kind\":\"Native\",\"nameservers\":[\"ns1.$zone\"]}" zones create)
-	zone_id=$(printf '%s\n' "$created_zone" | json_string id)
-	binding=$(operator_cli bindings list --zone-name "$zone")
-	binding_id=$(printf '%s\n' "$binding" | json_string id)
-	operator_data "{\"zone_binding_id\":\"$binding_id\",\"identity_id\":\"$identity_id\",\"selectors\":[{\"kind\":\"exact\",\"value\":\"$allowed\"}],\"record_types\":[\"A\"],\"change_kinds\":[\"REPLACE\"]}" delegations create >/dev/null
-
-	cli_with_token "$service_token" rrsets replace "$zone_id" "$allowed" A \
-		--ttl 60 --value 192.0.2.10 >/dev/null
-	set +e
-	denied_output=$(cli_with_token "$service_token" rrsets replace "$zone_id" "$denied" A \
-		--ttl 60 --value 192.0.2.11 2>&1)
-	denied_status=$?
-	set -e
-	[ "$denied_status" -eq 1 ] || die "denied RRset write exited $denied_status instead of 1"
-	printf '%s\n' "$denied_output" | grep -Fq '403 Forbidden' || die 'denied RRset write did not report 403 Forbidden'
-
-	dns=$(compose run --rm --no-deps -T cli nslookup "$allowed" powerdns 2>&1)
-	printf '%s\n' "$dns" | grep -Fq 192.0.2.10 || die 'authoritative DNS answer omitted 192.0.2.10'
-	audit=$(operator_cli audit list --actor "$identity_id" --action powerdns.zone.patch \
-		--target-type zone_binding --target "$binding_id" --result succeeded)
-	printf '%s\n' "$audit" | grep -Fq '"action":"powerdns.zone.patch"' || die 'succeeded RRset audit event is missing'
-	printf '%s\n' "$audit" | grep -Fq '"result":"succeeded"' || die 'RRset audit event did not succeed'
-	printf '%s\n' "$audit" | grep -Fq '"actor_id":"'"$identity_id"'"' || die 'audit event has the wrong actor'
-	printf '%s\n' "$audit" | grep -Fq '"target_id":"'"$binding_id"'"' || die 'audit event has the wrong binding'
-	if [ "$host_access" -eq 1 ]; then
-		host_smoke "$allowed" 192.0.2.10
-		printf '%s\n' "smoke-host: ok (zone $zone, identity $handle; fixtures retained)"
-	else
-		printf '%s\n' "smoke: ok (zone $zone, identity $handle; fixtures retained)"
+assert_dns_absent() {
+	answer=$(dig @127.0.0.1 -p "$DANS_DEV_DNS_PORT" +time=2 +tries=1 +noall +comments +answer \
+		"$allowed" A 2>/dev/null) || fail 'fresh DNS query failed'
+	printf '%s\n' "$answer" | grep -Eq 'status: (NOERROR|NXDOMAIN|REFUSED)' ||
+		fail 'fresh DNS query returned an unexpected status'
+	if printf '%s\n' "$answer" | awk -v owner="$allowed" '$1 == owner && $4 == "A" { found=1 } END { exit found ? 0 : 1 }'; then
+		fail 'reset left the original DNS answer behind'
 	fi
 }
 
-reset() {
-	[ "${CONFIRM:-}" = 1 ] || die 'reset deletes local data; rerun with CONFIRM=1'
-	if [ ! -s "$project_file" ]; then
-		if [ ! -d "$credential_dir" ]; then
-			(umask 077 && mkdir -p "$credential_dir") ||
-				die 'could not create private development state directory for reset'
-		fi
-		chmod 700 "$root/.dans" "$credential_dir" ||
-			die 'could not secure private development state directory for reset'
-		project_temp=$(mktemp "$credential_dir/compose-project.XXXXXX") ||
-			die 'could not create private development project file for reset recovery'
-		if ! (umask 077; printf '%s\n' "$COMPOSE_PROJECT_NAME" >"$project_temp"); then
-			rm -f "$project_temp"
-			project_temp=
-			die 'could not persist the development project identity for reset recovery'
-		fi
-		chmod 600 "$project_temp" || {
-			rm -f "$project_temp"
-			project_temp=
-			die 'could not secure the development project identity for reset recovery'
-		}
-		mv "$project_temp" "$project_file" || {
-			rm -f "$project_temp"
-			project_temp=
-			die 'could not persist the development project identity for reset recovery'
-		}
-		project_temp=
-	fi
-	compose --profile tools down --volumes --remove-orphans
-	rm -f "$token_file" "$token_file.tmp" \
-		"$credential_dir/bootstrap-error" "$credential_dir/bootstrap-output" \
-		"$credential_dir/recovery-error" "$credential_dir/recovery-output" \
-		"$credential_dir"/bootstrap-error.* "$credential_dir"/bootstrap-output.* \
-		"$credential_dir"/recovery-error.* "$credential_dir"/recovery-output.* \
-		"$credential_dir"/compose-project.* "$credential_dir"/operator-token.*
-	rm -f "$project_file" "$project_file.tmp"
-	rmdir "$credential_dir" 2>/dev/null || true
-	rmdir "$root/.dans" 2>/dev/null || true
+assert_persisted() {
+	token=$(read_token)
+	run_phase persisted-identity cli "$token" me get
+	assert_operator_identity "$run/persisted-identity.out" "$operator_id"
+	assert_smoke_identity "$token" persisted-smoke-identity
+	assert_zone "$token" persisted-zone
+	assert_audit_count "$token" persisted-audit
+	assert_dns
 }
 
-case "$command" in
-	up) up ;;
-	down) compose --profile tools down --remove-orphans ;;
-	status) compose ps; compose exec -T dans /usr/local/bin/dans health ready ;;
-	logs) compose logs --follow dans postgres powerdns ;;
-	smoke) smoke ;;
-	smoke-host) smoke host ;;
-	reset) reset ;;
-	*) die 'usage: scripts/dev-stack.sh {up|down|status|logs|smoke|smoke-host|reset}' ;;
-esac
+assert_resources_absent() {
+	phase=$1
+	if ! remaining_containers=$(compose ps -aq 2>"$run/$phase-containers.err"); then
+		fail "could not verify $phase containers"
+	fi
+	[ -z "$remaining_containers" ] || fail "$phase left containers behind"
+	if ! volume_query "$run/$phase-volumes.out" "$run/$phase-volumes.err"; then
+		fail "could not verify $phase volumes"
+	fi
+	remaining_volumes=$(cat "$run/$phase-volumes.out")
+	[ -z "$remaining_volumes" ] || fail "$phase left volumes behind"
+}
 
-exit 0
+owned=1
+claim_ownership
+run_phase first-up run_make up
+assert_token
+assert_project
+save_token first
+token=$(read_token)
+run_phase first-identity cli "$token" me get
+assert_identity "$run/first-identity.out"
+operator_id=$(jq -er '.id' "$run/first-identity.out" 2>/dev/null) || fail 'first operator identity could not be identified'
+printf '%s\n' "$operator_id" >"$run/fixture.operator-id"
+run_phase first-status run_make status
+run_phase first-smoke run_make smoke
+run_phase first-host-smoke run_make smoke-host
+zone=$(sed -n 's/^smoke: ok (zone \([^,]*\), identity .*/\1/p' "$run/first-smoke.out")
+identity=$(sed -n 's/^smoke: ok (zone [^,]*, identity \([^;]*\);.*/\1/p' "$run/first-smoke.out")
+[ -n "$zone" ] || fail 'first smoke did not retain its zone fixture'
+[ -n "$identity" ] || fail 'first smoke did not retain its identity fixture'
+allowed=allowed.$zone
+printf '%s\n' "$zone" >"$run/fixture.zone"
+printf '%s\n' "$identity" >"$run/fixture.identity"
+run_phase first-identities cli "$token" identities list
+identity_id=$(jq -er --arg handle "$identity" \
+	'[.items[] | select(.handle == $handle)] | if length == 1 then .[0].id else error end' \
+	"$run/first-identities.out" 2>/dev/null) || fail 'first smoke identity could not be identified'
+printf '%s\n' "$identity_id" >"$run/fixture.identity-id"
+assert_zone "$token" first-zone
+run_phase first-audit cli "$token" audit list --action powerdns.zone.patch --result succeeded
+audit_count=$(jq -er '.items | length' "$run/first-audit.out" 2>/dev/null) || fail 'first audit history could not be read'
+[ "$audit_count" -gt 0 ] || fail 'first smoke did not record an audit event'
+audit_ids=$(jq -er --arg actor "$identity_id" \
+	'[.items[] | select(.actor_id == $actor) | .id] | if length > 0 then .[] else error end' \
+	"$run/first-audit.out" 2>/dev/null) || fail 'first smoke audit event could not be identified'
+printf '%s\n' "$audit_ids" >"$run/fixture.audit-ids"
+assert_dns
+
+if [ "${DANS_DEV_LIFECYCLE_INJECT_FAILURE:-}" = after-first-up ]; then
+	fail 'injected lifecycle assertion failure'
+fi
+
+save_token repeated
+run_phase repeated-up run_make up
+cmp -s "$run/repeated.token" "$token_file" || fail 'repeated startup replaced a valid credential'
+assert_persisted
+
+run_phase down run_make down
+if ! remaining_containers=$(compose ps -aq 2>"$run/down-containers.err"); then
+	fail 'could not verify down containers'
+fi
+[ -z "$remaining_containers" ] || fail 'down left containers behind'
+run_phase restart-up run_make up
+cmp -s "$run/repeated.token" "$token_file" || fail 'stop/start replaced a valid credential'
+assert_persisted
+
+rm -f "$token_file"
+run_phase missing-token-up run_make up
+assert_token
+token=$(read_token)
+run_phase missing-token-identity cli "$token" me get
+assert_identity "$run/missing-token-identity.out"
+assert_persisted
+
+save_token revoked
+run_phase token-list cli "$token" me tokens
+token_id=$(jq -er '[.items[] | select((.label // "") | startswith("local-recovery-"))] | sort_by(.created_at) | last | .id' \
+	"$run/token-list.out" 2>/dev/null) || fail 'recovered token id could not be identified'
+run_phase revoke-token cli "$token" me token-revoke "$token_id"
+run_phase revoked-token-up run_make up
+assert_token
+if cmp -s "$run/revoked.token" "$token_file"; then
+	fail 'revoked credential was reused'
+fi
+token=$(read_token)
+run_phase revoked-token-identity cli "$token" me get
+assert_identity "$run/revoked-token-identity.out"
+expect_failure revoked-token-rejected 1 '401 Unauthorized' cli "$(sed -n '1p' "$run/revoked.token")" me get
+assert_persisted
+
+save_token reset
+cp "$project_file" "$run/reset.project"
+expect_failure reset-without-confirmation 2 'reset deletes local data; rerun with CONFIRM=1' run_make reset CONFIRM=
+cmp -s "$run/reset.token" "$token_file" || fail 'unconfirmed reset changed the credential'
+cmp -s "$run/reset.project" "$project_file" || fail 'unconfirmed reset changed project ownership'
+assert_persisted
+
+run_phase confirmed-reset run_make reset CONFIRM=1
+[ ! -e "$root/.dans/dev" ] || fail 'confirmed reset left local state behind'
+assert_resources_absent confirmed-reset
+clear_ownership
+owned=0
+
+owned=1
+claim_ownership
+run_phase fresh-up run_make up
+assert_token
+assert_project
+if cmp -s "$run/reset.token" "$token_file"; then
+	fail 'fresh startup reused the reset credential'
+fi
+token=$(read_token)
+run_phase fresh-identity cli "$token" me get
+assert_identity "$run/fresh-identity.out"
+fresh_operator_id=$(jq -er '.id' "$run/fresh-identity.out" 2>/dev/null) || fail 'fresh operator identity could not be identified'
+[ "$fresh_operator_id" != "$operator_id" ] || fail 'fresh startup reused the old operator identity'
+expect_failure fresh-old-token-rejected 1 '401 Unauthorized' cli "$(sed -n '1p' "$run/reset.token")" me get
+run_phase fresh-identities cli "$token" identities list
+if ! jq -e --arg operator_id "$operator_id" --arg smoke_id "$identity_id" \
+	'all(.items[]; .id != $operator_id and .id != $smoke_id)' \
+	"$run/fresh-identities.out" >/dev/null 2>&1; then
+	fail 'fresh startup retained an old identity'
+fi
+run_phase fresh-audit cli "$token" audit list --action powerdns.zone.patch --result succeeded
+if ! jq -e '.items | type == "array" and length == 0' \
+	"$run/fresh-audit.out" >/dev/null 2>&1; then
+	fail 'fresh startup retained the old audit history'
+fi
+run_phase fresh-zones cli "$token" zones list
+if ! jq -e --arg zone "$zone" 'type == "array" and all(.[]; .name != $zone)' \
+	"$run/fresh-zones.out" >/dev/null 2>&1; then
+	fail 'fresh startup saw or could not parse the old database fixture'
+fi
+assert_dns_absent
+run_phase final-reset run_make reset CONFIRM=1
+assert_resources_absent final-reset
+clear_ownership
+owned=0
+
+printf '%s\n' 'dev lifecycle: ok'
