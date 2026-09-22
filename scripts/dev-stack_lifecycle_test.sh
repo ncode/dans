@@ -21,9 +21,19 @@ validate_no_extended_acl() {
 				acl_entries=$(getfacl -cpn "$acl_path" 2>/dev/null) ||
 					fail 'development path ACL entries could not be inspected'
 				current_user_id=$(id -u)
-				if printf '%s\n' "$acl_entries" | awk -F: -v current_user_id="$current_user_id" '
+				current_group_ids=$(id -G)
+				if printf '%s\n' "$acl_entries" | awk -F: \
+					-v current_user_id="$current_user_id" \
+					-v current_group_ids="$current_group_ids" '
+					BEGIN { group_count = split(current_group_ids, group_ids, /[[:space:]]+/) }
 					/^(default:)?user:[^:]+:/ && $2 != current_user_id && $2 != 0 && $NF ~ /w/ { found = 1 }
-					/^(default:)?group:[^:]+:/ && $NF ~ /w/ { found = 1 }
+					/^(default:)?group:[^:]+:/ && $NF ~ /w/ {
+						group_is_current = 0
+						for (group_index = 1; group_index <= group_count; group_index++) {
+							if ($2 == group_ids[group_index]) group_is_current = 1
+						}
+						if (!group_is_current) found = 1
+					}
 					END { exit found ? 0 : 1 }
 				'; then
 					fail 'development path has an ACL write grant'
