@@ -244,6 +244,26 @@ process_is_descendant() {
 	done
 }
 
+process_is_baseline_descendant() {
+	baseline_candidate=$1
+	baseline_file=$2
+	baseline_steps=0
+	while [ "$baseline_steps" -lt 64 ]; do
+		baseline_parent=$(process_parent "$baseline_candidate" || true)
+		case "$baseline_parent" in
+			''|0|*[!0-9]*) return 1 ;;
+		esac
+		while IFS=/ read -r baseline_pid baseline_identity; do
+			[ "$baseline_pid" = "$baseline_parent" ] || continue
+			[ "$(process_identity "$baseline_parent" || true)" = "$baseline_identity" ] && return 0
+		done <"$baseline_file"
+		[ "$baseline_parent" != "$baseline_candidate" ] || return 1
+		baseline_candidate=$baseline_parent
+		baseline_steps=$((baseline_steps + 1))
+	done
+	return 1
+}
+
 process_group_id() {
 	process_id=$1
 	if [ -r "/proc/$process_id/stat" ]; then
@@ -1231,6 +1251,10 @@ running_group_drained() {
 						running_group_operation_member=1
 						break
 					done
+					if [ "$running_group_operation_member" -eq 0 ] &&
+						process_is_baseline_descendant "$running_group_member" "$running_group_baseline_file"; then
+						continue
+					fi
 				fi
 				process_running "$running_group_member" || continue
 				if [ "$running_group_operation_member" -ne 1 ]; then
