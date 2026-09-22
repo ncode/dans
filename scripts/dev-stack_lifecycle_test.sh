@@ -1205,6 +1205,7 @@ running_group_drained() {
 		while IFS= read -r running_group_member; do
 			[ -n "$running_group_member" ] || continue
 			[ "$running_group_member" = "$running_pid" ] && continue
+			process_running "$running_group_member" || continue
 			running_group_identity=$(process_identity "$running_group_member" || true)
 			[ -n "$running_group_identity" ] || {
 				rm -f "$running_group_file"
@@ -1251,6 +1252,7 @@ running_group_drained() {
 	while IFS= read -r running_group_member; do
 		[ -n "$running_group_member" ] || continue
 		[ "$running_group_member" = "$running_pid" ] && continue
+		process_running "$running_group_member" || continue
 		rm -f "$running_group_file"
 		return 1
 	done <"$running_group_file"
