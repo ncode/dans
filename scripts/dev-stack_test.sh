@@ -62,7 +62,7 @@ process_identity() {
 			split(stat_fields, fields, " ")
 			if (fields[19] == "") exit 1
 			print fields[19]
-		}' "/proc/$process_id/stat"
+		}' "/proc/$process_id/stat" 2>/dev/null
 	else
 		process_start=$(ps -p "$process_id" -o lstart= 2>/dev/null | tr -d '[:space:]')
 		if [ -n "$process_start" ]; then
@@ -70,6 +70,26 @@ process_identity() {
 		else
 			printf 'pid-%s\n' "$process_id"
 		fi
+	fi
+}
+process_group_id() {
+	process_id=$1
+	if [ -r "/proc/$process_id/stat" ]; then
+		awk '{
+			prefix = "^[0-9]+ \\(.*\\) [[:alpha:]] "
+			matched = match($0, prefix)
+			if (!matched) exit 1
+			stat_fields = substr($0, RSTART + RLENGTH)
+			split(stat_fields, fields, " ")
+			if (fields[2] == "") exit 1
+			print fields[2]
+		}' "/proc/$process_id/stat" 2>/dev/null
+	else
+		process_group=$(ps -p "$process_id" -o pgid= 2>/dev/null | tr -d '[:space:]')
+		case "$process_group" in
+			''|*[!0-9]*) return 1 ;;
+			*) printf '%s\n' "$process_group" ;;
+		esac
 	fi
 }
 cleanup() {
@@ -604,6 +624,7 @@ printf '%s\n' old >"$fake_root/.dans/dev/operator-token"
 printf '%s\n' "dans-dev-$fake_user_id-$fake_project_id" >"$fake_root/.dans/dev/compose-project"
 launcher_child_file=$work/launcher-child
 rm -f "$launcher_child_file"
+launcher_parent_group=$(process_group_id "$$" || true)
 if DEV_TEST_MODE=launcher-leaves-child \
 	DEV_TEST_LAUNCHER_CHILD_PID_FILE=$launcher_child_file \
 	DEV_TEST_RECOVER_COUNT_FILE=$work/recover-count \
@@ -624,8 +645,16 @@ attempt=0
 while process_running "$launcher_child_pid"; do
 	attempt=$((attempt + 1))
 	[ "$attempt" -lt 25 ] || {
-		printf '%s\n' 'dev stack behavior: launcher child survived drain' >&2
-		exit 1
+		# Shared groups are fail-closed; clean only the identity recorded by this test.
+		[ -z "$launcher_parent_group" ] ||
+			[ "$(process_group_id "$launcher_child_pid" || true)" = "$launcher_parent_group" ] || {
+				printf '%s\n' 'dev stack behavior: isolated launcher child survived drain' >&2
+				exit 1
+			}
+		kill_process_tree "$launcher_child_pid" "$launcher_child_identity"
+		launcher_child_pid=
+		launcher_child_identity=
+		break
 	}
 	sleep 1
 done

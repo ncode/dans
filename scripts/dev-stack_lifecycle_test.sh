@@ -125,7 +125,7 @@ process_identity() {
 			split(stat_fields, fields, " ")
 			if (fields[19] == "") exit 1
 			print fields[19]
-		}' "/proc/$process_id/stat"
+		}' "/proc/$process_id/stat" 2>/dev/null
 	else
 		process_start=$(ps -p "$process_id" -o lstart= 2>/dev/null | tr -d '[:space:]')
 		[ -n "$process_start" ] || return 1
