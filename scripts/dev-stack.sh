@@ -20,10 +20,12 @@ validate_no_extended_acl() {
 				acl_entries=$(getfacl -cpn "$acl_path" 2>/dev/null) ||
 					die 'development path ACL entries could not be inspected'
 				current_user_id=$(id -u)
+				current_user_name=$(id -un)
 				current_group_ids=$(id -G)
 				if printf '%s\n' "$acl_entries" | awk -F: \
-					-v current_user_id="$current_user_id" '
-					/^(default:)?user:[^:]+:/ && $2 != current_user_id && $2 != 0 && $NF ~ /w/ { found = 1 }
+					-v current_user_id="$current_user_id" \
+					-v current_user_name="$current_user_name" '
+					/^(default:)?user:[^:]+:/ && $2 != current_user_id && $2 != current_user_name && $2 != 0 && $NF ~ /w/ { found = 1 }
 					END { exit found ? 0 : 1 }
 				'; then
 					die 'development path has an ACL write grant to another user'
