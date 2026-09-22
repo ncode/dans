@@ -218,7 +218,7 @@ process_parent() {
 			split(stat_fields, fields, " ")
 			if (fields[1] == "") exit 1
 			print fields[1]
-		}' "/proc/$process_id/stat"
+		}' "/proc/$process_id/stat" 2>/dev/null
 	else
 		parent_id=$(ps -p "$process_id" -o ppid= 2>/dev/null | tr -d '[:space:]')
 		case "$parent_id" in
@@ -1227,10 +1227,11 @@ running_group_drained() {
 			[ "$running_group_member" = "$running_pid" ] && continue
 			process_running "$running_group_member" || continue
 			running_group_identity=$(process_identity "$running_group_member" || true)
-			[ -n "$running_group_identity" ] || {
+			if [ -z "$running_group_identity" ]; then
+				process_running "$running_group_member" || continue
 				rm -f "$running_group_file"
 				return 1
-			}
+			fi
 			running_group_baseline_match=0
 			while IFS=/ read -r running_baseline_pid running_baseline_identity; do
 				if [ "$running_baseline_pid" = "$running_group_member" ] &&
@@ -1255,6 +1256,7 @@ running_group_drained() {
 						continue
 					fi
 				fi
+				process_running "$running_group_member" || continue
 				if [ "$running_group_operation_member" -ne 1 ]; then
 					rm -f "$running_group_file"
 					return 1
@@ -1276,6 +1278,7 @@ running_group_drained() {
 	while IFS= read -r running_group_member; do
 		[ -n "$running_group_member" ] || continue
 		[ "$running_group_member" = "$running_pid" ] && continue
+		process_running "$running_group_member" || continue
 		process_running "$running_group_member" || continue
 		rm -f "$running_group_file"
 		return 1
