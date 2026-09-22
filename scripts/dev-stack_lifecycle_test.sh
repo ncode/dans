@@ -26,7 +26,17 @@ validate_no_extended_acl() {
 				if printf '%s\n' "$acl_entries" | awk -F: \
 					-v current_user_id="$current_user_id" \
 					-v current_user_name="$current_user_name" '
-					/^(default:)?user:[^:]+:/ && $2 != current_user_id && $2 != current_user_name && $2 != 0 && $NF ~ /w/ { found = 1 }
+					{
+						entry_kind = $1
+						principal = $2
+						if ($1 == "default") {
+							entry_kind = $2
+							principal = $3
+						}
+						if (entry_kind == "user" && principal != "" &&
+							principal != current_user_id && principal != current_user_name &&
+							principal != 0 && $NF ~ /w/) found = 1
+					}
 					END { exit found ? 0 : 1 }
 				'; then
 					fail 'development path has an ACL write grant to another user'
@@ -34,10 +44,17 @@ validate_no_extended_acl() {
 				if printf '%s\n' "$acl_entries" | awk -F: \
 					-v current_group_ids="$current_group_ids" '
 					BEGIN { group_count = split(current_group_ids, group_ids, /[[:space:]]+/) }
-					/^(default:)?group:[^:]+:/ && $NF ~ /w/ {
+					{
+						entry_kind = $1
+						principal = $2
+						if ($1 == "default") {
+							entry_kind = $2
+							principal = $3
+						}
+						if (entry_kind != "group" || principal == "" || $NF !~ /w/) next
 						group_is_current = 0
 						for (group_index = 1; group_index <= group_count; group_index++) {
-							if ($2 == group_ids[group_index]) group_is_current = 1
+							if (principal == group_ids[group_index]) group_is_current = 1
 						}
 						if (!group_is_current) found = 1
 					}
