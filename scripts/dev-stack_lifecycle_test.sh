@@ -83,11 +83,11 @@ mark_worker_done() {
 		(umask 077 && : >"$DANS_DEV_LOCK_WORKER_DONE") 2>/dev/null || true
 }
 
-validate_checkout_ancestors
-
 [ -z "${COMPOSE_PROJECT_NAME:-}" ] || fail 'COMPOSE_PROJECT_NAME must not override checkout ownership'
 [ ! -e "$root/.dans" ] && [ ! -L "$root/.dans" ] ||
 	fail 'checkout already has local development state'
+
+validate_checkout_ancestors
 
 prepare_lock_dir() {
 	if [ -L "$lock_dir" ] || { [ -e "$lock_dir" ] && [ ! -d "$lock_dir" ]; }; then
