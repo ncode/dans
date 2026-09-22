@@ -23,10 +23,15 @@ validate_no_extended_acl() {
 				current_user_id=$(id -u)
 				current_group_ids=$(id -G)
 				if printf '%s\n' "$acl_entries" | awk -F: \
-					-v current_user_id="$current_user_id" \
+					-v current_user_id="$current_user_id" '
+					/^(default:)?user:[^:]+:/ && $2 != current_user_id && $2 != 0 && $NF ~ /w/ { found = 1 }
+					END { exit found ? 0 : 1 }
+				'; then
+					fail 'development path has an ACL write grant to another user'
+				fi
+				if printf '%s\n' "$acl_entries" | awk -F: \
 					-v current_group_ids="$current_group_ids" '
 					BEGIN { group_count = split(current_group_ids, group_ids, /[[:space:]]+/) }
-					/^(default:)?user:[^:]+:/ && $2 != current_user_id && $2 != 0 && $NF ~ /w/ { found = 1 }
 					/^(default:)?group:[^:]+:/ && $NF ~ /w/ {
 						group_is_current = 0
 						for (group_index = 1; group_index <= group_count; group_index++) {
@@ -36,7 +41,7 @@ validate_no_extended_acl() {
 					}
 					END { exit found ? 0 : 1 }
 				'; then
-					fail 'development path has an ACL write grant'
+					fail 'development path has an ACL write grant to another group'
 				fi
 				acl_inspected=1
 			elif printf '%s\n' "$acl_listing" | awk 'NR > 1 && /allow/ && /(write|delete|add_file|add_subdirectory|append|chown)/ { found = 1 } END { exit found ? 0 : 1 }'; then
