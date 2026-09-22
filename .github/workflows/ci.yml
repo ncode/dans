@@ -67,7 +67,7 @@ jobs:
       - name: Install host probe tools
         run: |
           sudo apt-get update >/dev/null 2>&1
-          sudo apt-get install -y curl dnsutils jq >/dev/null 2>&1
+          sudo apt-get install -y acl curl dnsutils jq >/dev/null 2>&1
       - name: Verify development contract
         run: make dev-contract
       - name: Verify disposable-checkout refusal

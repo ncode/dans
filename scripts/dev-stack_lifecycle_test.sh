@@ -16,10 +16,19 @@ validate_no_extended_acl() {
 	case "$acl_mode" in
 		*+)
 			[ "$acl_strict" -eq 0 ] || fail 'development path has an unsupported extended ACL'
-			if printf '%s\n' "$acl_listing" | awk 'NR > 1 && /allow/ && /(write|delete|add_file|add_subdirectory|append|chown)/ { found = 1 } END { exit found ? 0 : 1 }'; then
+			acl_inspected=0
+			if command -v getfacl >/dev/null 2>&1; then
+				acl_entries=$(getfacl -cp "$acl_path" 2>/dev/null) ||
+					fail 'development path ACL entries could not be inspected'
+				if printf '%s\n' "$acl_entries" | awk -F: '/^(default:)?(user|group):[^:]+:/ && $NF ~ /w/ { found = 1 } END { exit found ? 0 : 1 }'; then
+					fail 'development path has an ACL write grant'
+				fi
+				acl_inspected=1
+			elif printf '%s\n' "$acl_listing" | awk 'NR > 1 && /allow/ && /(write|delete|add_file|add_subdirectory|append|chown)/ { found = 1 } END { exit found ? 0 : 1 }'; then
 				fail 'development path has an ACL write grant'
 			fi
-			[ "$(printf '%s\n' "$acl_listing" | awk 'END { print NR }')" -gt 1 ] ||
+			[ "$acl_inspected" -eq 1 ] ||
+				[ "$(printf '%s\n' "$acl_listing" | awk 'END { print NR }')" -gt 1 ] ||
 				fail 'development path ACL entries could not be inspected'
 			;;
 	esac
