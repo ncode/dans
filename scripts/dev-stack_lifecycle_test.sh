@@ -85,6 +85,10 @@ mark_worker_done() {
 
 validate_checkout_ancestors
 
+[ -z "${COMPOSE_PROJECT_NAME:-}" ] || fail 'COMPOSE_PROJECT_NAME must not override checkout ownership'
+[ ! -e "$root/.dans" ] && [ ! -L "$root/.dans" ] ||
+	fail 'checkout already has local development state'
+
 prepare_lock_dir() {
 	if [ -L "$lock_dir" ] || { [ -e "$lock_dir" ] && [ ! -d "$lock_dir" ]; }; then
 		fail 'development stack lock directory is not a directory'
@@ -1625,10 +1629,6 @@ sanitize_failure() {
 for command in awk chmod cksum curl dig docker id jq ls make mkdir mkfifo mktemp pgrep ps sed stat tee tr; do
 	command -v "$command" >/dev/null 2>&1 || fail "missing required command $command"
 done
-
-[ -z "${COMPOSE_PROJECT_NAME:-}" ] || fail 'COMPOSE_PROJECT_NAME must not override checkout ownership'
-[ ! -e "$root/.dans" ] && [ ! -L "$root/.dans" ] ||
-	fail 'checkout already has local development state'
 
 compose() {
 	[ -z "$operation_marker" ] || [ ! -e "$operation_marker" ] || return 125
