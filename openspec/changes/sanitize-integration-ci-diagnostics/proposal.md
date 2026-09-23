@@ -7,6 +7,7 @@ On integration failure, CI uploads raw container logs and process listings. Thos
 - Keep raw integration diagnostics runner-local; do not print or upload them from CI.
 - Publish a small allowlisted failure summary that identifies the matrix leg and failing phase without copying untrusted output.
 - Add a contract test that injects synthetic secrets and paths into raw diagnostics and verifies they cannot reach the published summary while failure status is preserved.
+- Stabilize the separate macOS development-shell CI contract, which timed out once and remained on the same step during its rerun without a useful phase diagnostic. Emit only fixed phase labels, locate the stalled wait, and make that failure bounded.
 
 ## Capabilities
 
@@ -20,4 +21,4 @@ None.
 
 ## Impact
 
-The integration shell harness, its contract test, and the CI workflow change. The public API, runtime behavior, dependencies, and PostgreSQL test matrix do not.
+The integration shell harness, its contract test, the macOS development-shell test harness, and the CI workflow change. The public API, runtime behavior, dependencies, and PostgreSQL test matrix do not.

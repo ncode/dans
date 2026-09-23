@@ -93,6 +93,7 @@ process_group_id() {
 	fi
 }
 cleanup() {
+	printf '%s\n' 'dev stack contract: phase=cleanup' >&2
 	if [ -n "${lock_holder:-}" ]; then
 		: >"$lock_stop" 2>/dev/null || true
 		wait "$lock_holder" 2>/dev/null || true
@@ -147,6 +148,7 @@ cleanup_signal() {
 trap cleanup EXIT
 trap cleanup_signal HUP INT TERM
 
+printf '%s\n' 'dev stack contract: phase=setup' >&2
 fake_root=$work/repo
 mkdir -p "$fake_root/scripts" "$work/bin"
 cp "$root/scripts/dev-stack.sh" "$fake_root/scripts/dev-stack.sh"
@@ -518,6 +520,7 @@ run_scenario() {
 	fi
 }
 
+printf '%s\n' 'dev stack contract: phase=credential-cases' >&2
 run_scenario fresh 0 candidate old 0 1 none
 run_scenario existing-valid 0 old old 0 1 none
 run_scenario existing-unauthorized 0 recovered old 1 2 none
@@ -571,6 +574,7 @@ rm -rf "$fake_root/.dans"
 mkdir -p "$fake_root/.dans/dev"
 printf '%s\n' old >"$fake_root/.dans/dev/operator-token"
 printf '%s\n' "dans-dev-$fake_user_id-$fake_project_id" >"$fake_root/.dans/dev/compose-project"
+printf '%s\n' 'dev stack contract: phase=log-stream' >&2
 logs_ready=$work/logs-ready
 logs_stop=$work/logs-stop
 printf '%s\n' 0 >"$work/recover-count"
@@ -607,6 +611,7 @@ while ! grep -Fq 'live log diagnostic' "$work/logs.stderr"; do
 	sleep 0.1
 done
 : >"$logs_stop"
+printf '%s\n' 'dev stack contract: phase=log-stream-wait' >&2
 if wait "$logs_pid"; then
 	logs_status=0
 else
@@ -622,6 +627,7 @@ rm -rf "$fake_root/.dans"
 mkdir -p "$fake_root/.dans/dev"
 printf '%s\n' old >"$fake_root/.dans/dev/operator-token"
 printf '%s\n' "dans-dev-$fake_user_id-$fake_project_id" >"$fake_root/.dans/dev/compose-project"
+printf '%s\n' 'dev stack contract: phase=launcher-drain' >&2
 launcher_child_file=$work/launcher-child
 rm -f "$launcher_child_file"
 launcher_parent_group=$(process_group_id "$$" || true)
@@ -736,6 +742,7 @@ run_interrupted_operation() {
 	rmdir "$fake_lock.lockdir" "$fake_project_lock"
 }
 
+printf '%s\n' 'dev stack contract: phase=interrupt-shutdown' >&2
 run_interrupted_operation bootstrap-interrupted 125
 run_interrupted_operation recover-interrupted 125
 
@@ -837,6 +844,7 @@ rmdir "$fake_lock.lockdir"
 rm -f "$fake_project_lock/pid" "$fake_project_lock/ready" "$fake_project_lock/worker-done" "$fake_project_lock/operation-uncertain"
 rmdir "$fake_project_lock"
 
+printf '%s\n' 'dev stack contract: phase=lock-contention' >&2
 lock_ready=$work/lock-ready
 lock_stop=$work/lock-stop
 rm -f "$lock_ready"
@@ -917,6 +925,7 @@ fi
 	exit 1
 }
 touch "$lock_stop"
+printf '%s\n' 'dev stack contract: phase=lock-release-wait' >&2
 wait "$lock_holder" 2>/dev/null || true
 rm -f "$fake_lock.lockdir/pid"
 rmdir "$fake_lock.lockdir" 2>/dev/null || true
@@ -950,6 +959,7 @@ mismatch_holder=
 rm -f "$fake_lock.lockdir/pid"
 rmdir "$fake_lock.lockdir"
 
+printf '%s\n' 'dev stack contract: phase=state-paths' >&2
 symlink_state=$work/foreign-state
 mkdir -p "$symlink_state"
 printf '%s\n' sentinel >"$symlink_state/operator-token"
@@ -1042,6 +1052,7 @@ grep -Fq 'local development state file has unexpected hard links' \
 	"$work/state-hardlink.stdout" "$work/state-hardlink.stderr"
 grep -Fxq external "$work/external-token"
 
+printf '%s\n' 'dev stack contract: phase=project-lock' >&2
 other_root=$work/repo-other
 mkdir -p "$other_root/scripts" "$other_root/.dans/dev"
 cp "$root/scripts/dev-stack.sh" "$other_root/scripts/dev-stack.sh"
@@ -1085,6 +1096,7 @@ fi
 grep -Fq 'development stack is already in use by process' \
 	"$work/project-lock.stdout" "$work/project-lock.stderr"
 touch "$lock_stop"
+printf '%s\n' 'dev stack contract: phase=project-lock-release-wait' >&2
 wait "$lock_holder" 2>/dev/null || true
 rm -f "$other_lock.lockdir/pid"
 rmdir "$other_lock.lockdir" 2>/dev/null || true
@@ -1132,6 +1144,7 @@ rm -rf "$fake_root/.dans"
 mkdir -p "$fake_root/.dans/dev"
 printf '%s\n' old >"$fake_root/.dans/dev/operator-token"
 printf '%s\n' "dans-dev-$fake_user_id-$fake_project_id" >"$fake_root/.dans/dev/compose-project"
+printf '%s\n' 'dev stack contract: phase=reset-recovery' >&2
 partial_teardown_file=$work/partial-teardown
 rm -f "$partial_teardown_file"
 if CONFIRM=1 DEV_TEST_MODE=reset-teardown-failure \

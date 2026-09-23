@@ -11,4 +11,7 @@
 
 - [x] 3.1 Run focused shell contracts, strict OpenSpec validation, and local Docker integration for both supported PostgreSQL versions; record sanitized results.
 - [x] 3.2 Review the exact diff with OCR, inspect files its filter excludes locally, fix confirmed findings, and rerun affected checks.
-- [ ] 3.3 Verify outgoing privacy and commit identities, open a PR through the authenticated account, update its body, and confirm all CI checks pass.
+- [x] 3.3 Add a fast contract for fixed, nonsecret macOS test phase markers, observe it fail, then emit those markers at major test and wait boundaries.
+- [ ] 3.4 Use CI phase evidence to isolate the stalled wait, add a focused failing regression, and make that wait terminate with a sanitized failure while preserving existing assertions.
+- [ ] 3.5 Rerun affected local checks and OCR on the expanded diff, inspect excluded files locally, and update sanitized verification notes.
+- [ ] 3.6 Recheck outgoing privacy and commit identities, update the PR through the authenticated account, and confirm all CI checks pass.
