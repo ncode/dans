@@ -14,4 +14,4 @@
 - [x] 3.3 Add a fast contract for fixed, nonsecret macOS test phase markers, observe it fail, then emit those markers at major test and wait boundaries.
 - [x] 3.4 Reproduce the launcher-watchdog identity-miss deadlock with a focused failing regression, then keep the watchdog alive and bound the scenario wait while preserving existing assertions.
 - [x] 3.5 Rerun affected local checks and OCR on the expanded diff, inspect excluded files locally, and update sanitized verification notes.
-- [ ] 3.6 Recheck outgoing privacy and commit identities, update the PR through the authenticated account, and confirm all CI checks pass.
+- [x] 3.6 Recheck outgoing privacy and commit identities, update the PR through the authenticated account, and confirm all CI checks pass.
