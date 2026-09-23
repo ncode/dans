@@ -20,8 +20,8 @@ The real-system integration gate SHALL retain its nonzero result on failure and 
 - **THEN** no failure-diagnostics artifact is uploaded and the existing performance measurements remain available
 
 ### Requirement: Development shell CI failures remain diagnosable and bounded
-The macOS development-shell contract SHALL emit only fixed, nonsecret phase markers as it advances. A worker or cleanup wait that does not complete SHALL fail within a bounded time rather than consume the full CI job timeout. Published diagnostics MUST NOT include raw process output, credentials, private paths, or unrelated operational identifiers.
+The macOS development-shell contract SHALL emit only fixed, nonsecret phase markers as it advances. Its launcher-supervisor scenario SHALL fail within a test-local bound if the watchdog does not release its readers. Published diagnostics MUST NOT include raw process output, credentials, private paths, or unrelated operational identifiers.
 
-#### Scenario: A macOS contract phase stalls
-- **WHEN** a test worker or cleanup operation does not terminate
-- **THEN** the contract fails within its own bound and the last published phase identifies the stalled boundary without exposing raw output
+#### Scenario: The watchdog's macOS process lookup misses a new child
+- **WHEN** the watchdog cannot read its direct child's start time immediately after spawning it
+- **THEN** it still releases the supervisor's readers after its existing deadline, and the launcher scenario completes within its own bound with only a fixed phase diagnostic
