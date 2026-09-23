@@ -3,6 +3,8 @@ name: ci
 on:
   pull_request:
   push:
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -10,6 +12,7 @@ permissions:
 jobs:
   unit:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     services:
       postgres:
         image: postgres:16.14
@@ -55,6 +58,115 @@ jobs:
       - run: go test ./...
       - run: go test -race ./...
       - run: go vet ./...
+
+  dev-stack:
+    name: development stack lifecycle
+    needs: unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install host probe tools
+        run: |
+          sudo apt-get update >/dev/null 2>&1
+          sudo apt-get install -y acl curl dnsutils jq >/dev/null 2>&1
+      - name: Verify development contract
+        run: make dev-contract
+      - name: Verify disposable-checkout refusal
+        run: |
+          umask 077
+          mkdir -p .dans/dev
+          printf '%s\n' sentinel >.dans/dev/operator-token
+          refusal_log=$(mktemp)
+          set +e
+          scripts/dev-stack_lifecycle_test.sh >"$refusal_log" 2>&1
+          refusal_status=$?
+          set -e
+          test "$refusal_status" -eq 1
+          grep -Fq 'checkout already has local development state' "$refusal_log"
+          rm -f "$refusal_log"
+          test "$(sed -n '1p' .dans/dev/operator-token)" = sentinel
+          rm -f .dans/dev/operator-token
+          rmdir .dans/dev .dans
+      - name: Verify symlinked-state refusal
+        run: |
+          umask 077
+          mkdir -p .dans
+          ln -s "$RUNNER_TEMP/missing-dev-state" .dans/dev
+          symlink_log=$(mktemp)
+          set +e
+          scripts/dev-stack_lifecycle_test.sh >"$symlink_log" 2>&1
+          symlink_status=$?
+          set -e
+          test "$symlink_status" -eq 1
+          grep -Fq 'checkout already has local development state' "$symlink_log"
+          rm -f "$symlink_log"
+          test -L .dans/dev
+          rm -f .dans/dev
+          rmdir .dans
+          mkdir -p "$RUNNER_TEMP/existing-dans-state"
+          ln -s "$RUNNER_TEMP/existing-dans-state" .dans
+          symlink_log=$(mktemp)
+          set +e
+          scripts/dev-stack_lifecycle_test.sh >"$symlink_log" 2>&1
+          symlink_status=$?
+          set -e
+          test "$symlink_status" -eq 1
+          grep -Fq 'checkout already has local development state' "$symlink_log"
+          rm -f "$symlink_log"
+          test -L .dans
+          rm -f .dans
+      - name: Verify failure cleanup
+        run: |
+          failure_log=$(mktemp)
+          if DANS_DEV_LIFECYCLE_INJECT_FAILURE=after-first-up \
+            scripts/dev-stack_lifecycle_test.sh >"$failure_log" 2>&1; then
+            rm -f "$failure_log"
+            exit 1
+          fi
+          if ! grep -Fq 'injected lifecycle assertion failure' "$failure_log"; then
+            grep -E '^(dev lifecycle:|dev stack:|make: \*\*)' "$failure_log" >&2 || true
+            rm -f "$failure_log"
+            exit 1
+          fi
+          rm -f "$failure_log"
+          test ! -e .dans
+          lifecycle_project_id=$(printf '%s\n' "$(pwd -P)" | cksum | awk '{print $1}')
+          lifecycle_user_id=$(id -u)
+          lifecycle_project=dans-dev-$lifecycle_user_id-$lifecycle_project_id
+          if ! lifecycle_containers=$(docker compose --project-name "$lifecycle_project" \
+            --file compose.yaml ps -aq); then
+            exit 1
+          fi
+          test -z "$lifecycle_containers"
+          if ! lifecycle_volumes=$(docker volume ls -q \
+            --filter "label=com.docker.compose.project=$lifecycle_project"); then
+            exit 1
+          fi
+          test -z "$lifecycle_volumes"
+      - name: Run development stack lifecycle
+        run: scripts/dev-stack_lifecycle_test.sh
+      - name: Cleanup development stack
+        if: always()
+        run: |
+          if [ -e .dans ] || [ -L .dans ]; then
+            printf '%s\n' 'development stack cleanup left local state behind' >&2
+            exit 1
+          fi
+
+  dev-stack-shell:
+    name: development shell contract (macOS)
+    needs: unit
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify lock primitive
+        run: command -v mkdir >/dev/null 2>&1
+      - name: Verify mocked stack behavior
+        run: scripts/dev-stack_test.sh
+      - name: Verify mocked host probes
+        run: scripts/dev-host-smoke_test.sh
 
   integration:
     name: integration (${{ matrix.name }})

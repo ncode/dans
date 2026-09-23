@@ -14,6 +14,8 @@ fail() {
 
 [ -f "$compose" ] || fail "missing root compose.yaml"
 [ -x "$lifecycle" ] || fail "missing executable scripts/dev-stack.sh"
+[ -x "$root/scripts/dev-host-smoke_test.sh" ] || fail "missing executable host smoke checks"
+[ -x "$root/scripts/dev-stack_lifecycle_init_test.sh" ] || fail "missing executable lifecycle initialization checks"
 
 grep -Fq 'name: ${COMPOSE_PROJECT_NAME:-dans-dev}' "$compose" || fail "Compose project identity is not overridable"
 grep -Fq 'image: ${COMPOSE_PROJECT_NAME:-dans-dev}:local' "$compose" || fail "the local image is shared across checkouts"
@@ -42,14 +44,37 @@ grep -Fq 'powerdns-data:' "$compose" || fail "PowerDNS data is not persistent"
 grep -Fq 'postgres-data:/var/lib/postgresql/data' "$compose" || fail "PostgreSQL data uses the wrong mount target"
 grep -Fq 'powerdns-data:/var/lib/powerdns' "$compose" || fail "PowerDNS data uses the wrong mount target"
 
-for target in help up down status logs smoke reset; do
+for target in help up down status logs smoke smoke-host reset; do
 	grep -Eq "^$target:" "$makefile" || fail "make $target is missing"
 done
+
+grep -Fq 'host_prerequisites' "$lifecycle" || fail "host smoke does not check host prerequisites"
+grep -Fq 'curl --noproxy' "$lifecycle" || fail "host HTTP probes do not bypass proxies"
+grep -Fq '+notcp' "$lifecycle" || fail "host UDP DNS probes can fall back to TCP"
+grep -Fq '+tcp' "$lifecycle" || fail "host TCP DNS probes are missing"
+grep -Fq '+ignore' "$lifecycle" || fail "host DNS probes can accept truncated fallback responses"
+grep -Fq -- '--connect-timeout 2' "$lifecycle" || fail "host HTTP probes are unbounded"
+grep -Fq -- '--max-time 5' "$lifecycle" || fail "host HTTP probes are unbounded"
+grep -Fq '+time=2 +tries=1' "$lifecycle" || fail "host DNS probes are unbounded"
+grep -Fq 'smoke-host' "$readme" || fail "README omits host smoke"
 
 grep -Fq 'db migrate' "$lifecycle" || fail "startup does not run migrations"
 grep -Fq 'runtime.sql' "$lifecycle" || fail "startup does not apply runtime grants"
 grep -Fq 'bootstrap' "$lifecycle" || fail "startup does not bootstrap a DANS operator"
 grep -Fq 'recover operator-token' "$lifecycle" || fail "startup cannot recover a missing local token"
+grep -Fq 'me get' "$lifecycle" || fail "startup does not validate the local operator token"
+grep -Fq '401 Unauthorized' "$lifecycle" || fail "startup does not classify rejected credentials"
+grep -Fq 'validate_credential' "$lifecycle" || fail "startup does not validate credential identity"
+grep -Fq 'validate_identity' "$lifecycle" || fail "startup does not validate the expected identity"
+grep -Fq '[ "$handle" = dev-operator ]' "$lifecycle" || fail "startup accepts the wrong operator handle"
+grep -Fq '[ "$enabled" = true ]' "$lifecycle" || fail "startup accepts a disabled operator"
+grep -Fq '[ "$operator" = true ]' "$lifecycle" || fail "startup accepts a non-operator identity"
+grep -Fq 'bootstrap_candidate=' "$lifecycle" || fail "startup does not separate bootstrap from cached-token validation"
+grep -Fq 'publish_credential "$bootstrap_candidate"' "$lifecycle" || fail "bootstrap credentials are not validated before publication"
+grep -Fq 'publish_credential "$credential"' "$lifecycle" || fail "recovered credentials are not validated before publication"
+grep -Fq 'return 10' "$lifecycle" || fail "startup does not bound recovery to rejected credentials"
+grep -Fq 'credential belongs to an unexpected identity' "$lifecycle" || fail "startup does not fail closed for unexpected identities"
+grep -Fq 'credential validation failed' "$lifecycle" || fail "startup does not fail closed for validation errors"
 grep -Fq 'database: conflict' "$lifecycle" || fail "startup masks non-conflict bootstrap failures"
 grep -Fq 'umask 077' "$lifecycle" || fail "operator token creation lacks a restrictive umask"
 grep -Fq 'chmod 600' "$lifecycle" || fail "operator token permissions are not enforced"
@@ -66,7 +91,7 @@ grep -Eq '(nslookup|dig )' "$lifecycle" || fail "smoke does not query authoritat
 grep -Fq 'down) compose --profile tools down --remove-orphans ;;' "$lifecycle" || fail "make down may remove persistent data"
 token_reset_line=$(grep -n 'rm -f "$token_file"' "$lifecycle" | cut -d: -f1)
 volume_reset_line=$(grep -n 'down --volumes --remove-orphans' "$lifecycle" | cut -d: -f1)
-[ "$token_reset_line" -lt "$volume_reset_line" ] || fail "reset can preserve a stale token after partial volume deletion"
+[ "$volume_reset_line" -lt "$token_reset_line" ] || fail "reset removes credentials before volume teardown succeeds"
 
 grep -Fq '.dans/' "$root/.gitignore" || fail ".dans credentials are not ignored"
 grep -Fxq '.dans' "$root/.dockerignore" || fail ".dans credentials enter the Docker build context"
@@ -87,6 +112,12 @@ if grep -Fq 'openspec/changes/build-dans-v1/' "$readme"; then
 fi
 
 sh -n "$lifecycle"
+sh -n "$root/scripts/dev-stack_test.sh"
+sh -n "$root/scripts/dev-host-smoke_test.sh"
+sh -n "$root/scripts/dev-stack_lifecycle_init_test.sh"
+"$root/scripts/dev-stack_lifecycle_init_test.sh"
+"$root/scripts/dev-stack_test.sh"
+"$root/scripts/dev-host-smoke_test.sh"
 docker compose --file "$compose" config --quiet
 
 printf '%s\n' 'dev contract: ok'
