@@ -67,7 +67,7 @@ DANS SHALL let operators create, inspect, list, update, and directly populate no
 - **THEN** its retained memberships and active delegations contribute authority again
 
 ### Requirement: Management visibility and self-service
-DANS SHALL permit operators to administer all identity, group, membership, and token resources. An enabled non-operator identity SHALL be limited to its own read-only identity view, paginated group memberships, effective delegations, token metadata, and creation or revocation of its own tokens.
+DANS SHALL permit operators to administer all identity, group, membership, and token resources. An enabled non-operator identity SHALL be limited to its own read-only identity view, paginated group memberships, effective delegations, token metadata, and creation or revocation of its own tokens. Effective self-delegations SHALL additionally expose the associated PowerDNS zone identifier and canonical zone name so callers can interpret their authority without accessing operator-only binding resources.
 
 #### Scenario: Inspect the current identity
 - **WHEN** an enabled identity requests its self view
@@ -83,6 +83,11 @@ DANS SHALL permit operators to administer all identity, group, membership, and t
 - **WHEN** a non-operator attempts to create or update an identity or group, change membership, or assign the operator role
 - **THEN** DANS rejects the request with HTTP 403
 - **AND** no management state changes
+
+#### Scenario: Resolve effective delegation scope
+- **WHEN** a non-operator lists effective self-delegations
+- **THEN** each item retains its binding ID, selectors, and restrictions and also identifies its associated zone by ID and name
+- **AND** this addition does not grant access to operator-only zone-binding operations or change read visibility
 
 ### Requirement: API-token creation and representation
 DANS SHALL support multiple named API tokens per identity. A newly created token SHALL use the versioned `dans_v1_` prefix followed by 43 unpadded base64url characters, SHALL return its secret only in the successful creation response, and SHALL expose thereafter only `id`, `identity_id`, `label`, derived `status`, nullable `expires_at`, nullable `revoked_at`, and `created_at` metadata.
@@ -126,17 +131,22 @@ DANS SHALL derive each token's status as `active`, `expired`, or `revoked`; only
 - **AND** the token remains revoked
 
 ### Requirement: API-key authentication security
-DANS SHALL authenticate API requests from exactly one `X-API-Key` header whose value matches the supported token format. Missing, duplicated, malformed, unknown, expired, revoked, and disabled-owner credentials MUST receive the same HTTP 401 error shape without revealing credential state, and authenticated responses MUST include `Cache-Control: no-store`.
+DANS SHALL continue authenticating API requests from exactly one X-API-Key header whose value matches the supported token format. Protected browser requests SHALL alternatively authenticate using one valid token-backed browser-session cookie under the browser-authentication contract. Except for the explicitly defined sign-in operation that replaces an existing browser session, a request supplying both credential kinds MUST be rejected rather than selecting one implicitly. Missing, duplicated, malformed, unknown, expired, revoked, and disabled-owner credentials MUST receive the same HTTP 401 error shape without revealing credential state, and authenticated responses MUST include Cache-Control no-store.
 
 #### Scenario: Authenticate an active token
-- **WHEN** a request supplies exactly one valid active DANS token in `X-API-Key`
+- **WHEN** a request supplies exactly one valid active DANS token in X-API-Key and no browser-session credential
 - **THEN** DANS evaluates the current identity and authority for that request
 - **AND** DANS does not expose the token in its response, audit data, or structured logs
 
 #### Scenario: Reject an unusable credential uniformly
-- **WHEN** a request omits `X-API-Key`, supplies it more than once, or supplies a malformed, unknown, expired, revoked, or disabled-owner token
+- **WHEN** a protected request supplies neither credential, supplies a credential more than once, supplies ambiguous credentials, or supplies a malformed, unknown, expired, revoked, or disabled-owner credential
 - **THEN** DANS responds with HTTP 401 using the same DANS error representation in every case
-- **AND** the response gives no indication whether a token or identity exists
+- **AND** the response gives no indication whether a token, session, or identity exists
+
+#### Scenario: Authenticate a browser session
+- **WHEN** a protected request supplies only one valid browser-session credential
+- **THEN** DANS evaluates current session, original-token, identity, and authority state for the request
+- **AND** cookie authentication does not allow duplicated or malformed X-API-Key headers to be ignored
 
 ### Requirement: Cursor-paginated identity collections
 DANS SHALL paginate identity, group, member, token, and self-service collections using `items` and nullable `next_cursor`, with a default limit of 100 and a maximum limit of 500. A cursor MUST grant no authority, and each page MUST re-authenticate and re-authorize the caller against current state.
@@ -191,3 +201,37 @@ DANS MUST require restore finalization before a restored installation becomes re
 #### Scenario: Try a restored token
 - **WHEN** any token contained in the restored data is presented after finalization
 - **THEN** DANS rejects it with HTTP 401
+
+### Requirement: Operator identity relationship reads
+DANS SHALL expose operator-only, cursor-paginated reads of another identity's memberships, effective delegations, and retained delegation assignments. Responses SHALL identify direct or group provenance and the states needed to explain suspended authority. Effective delegation reads for disabled targets SHALL be empty; retained views SHALL preserve inspectable assignments without granting authority. Operator authority SHALL remain explicit in the identity representation rather than synthesized as a delegation.
+
+#### Scenario: Inspect suspended access
+- **WHEN** an enabled DANS operator reads relationships of a disabled identity or its disabled groups
+- **THEN** retained memberships and assignments remain visible with their suspension state
+- **AND** they do not appear as currently usable authority
+
+#### Scenario: Protect another identity's relationships
+- **WHEN** a non-operator requests another identity's management relationships
+- **THEN** DANS rejects the request with HTTP 403 and returns no relationship data
+- **AND** existing self-service access remains limited to the caller
+
+### Requirement: Current credential metadata
+DANS SHALL expose the authenticated caller's current API-token identifier through a self-service metadata read. A browser session SHALL identify its backing token. The response SHALL contain no token secret, digest, browser-session secret, or recoverable credential material and SHALL follow existing no-store and current-authentication rules.
+
+#### Scenario: Identify a browser sign-in token
+- **WHEN** an authenticated browser requests current credential metadata
+- **THEN** the response identifies the API token backing that browser session
+- **AND** another identity's credential cannot be selected through request input
+
+### Requirement: Literal handle-prefix filtering
+DANS SHALL add optional literal handle-prefix filtering to identity and group collections and relevant membership collections while preserving exact-handle filters, existing ordering, default and maximum page sizes, and unfiltered visibility. Prefixes SHALL follow the applicable lowercase handle alphabet; punctuation SHALL be matched literally rather than interpreted as a wildcard. Cursors SHALL bind the collection, parent resource, and filters and SHALL NOT be reusable under different search criteria.
+
+#### Scenario: Search a literal prefix
+- **WHEN** a caller supplies a valid handle prefix containing underscore, hyphen, or dot
+- **THEN** DANS returns only literal prefix matches under the existing visibility and pagination rules
+- **AND** malformed prefixes are rejected rather than becoming wildcard searches
+
+#### Scenario: Change search while continuing a collection
+- **WHEN** a caller reuses a cursor with a different prefix or parent resource
+- **THEN** DANS rejects the cursor with the existing HTTP 422 invalid-input response
+- **AND** the caller can restart from the first page with the new filter
