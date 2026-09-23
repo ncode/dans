@@ -77,23 +77,28 @@ DANS SHALL accept legal PowerDNS 5.1.3 requests even where the published upstrea
 - **THEN** DANS returns `422 Unprocessable Entity` and sends no upstream request
 
 ### Requirement: Credential and forwarding-header isolation
-DANS SHALL authenticate clients with the `X-API-Key` header containing a DANS API token. It MUST remove the client credential and all client-supplied hop-by-hop or forwarding headers before contacting PowerDNS, MUST authenticate upstream requests with only the configured PowerDNS API key, and MUST NOT expose either credential in a response or error. Every authenticated response MUST include `Cache-Control: no-store`.
+DANS SHALL authenticate clients with an X-API-Key header containing a DANS API token or with the explicitly supported token-backed browser credential. It MUST remove client API credentials, cookies, and all client-supplied hop-by-hop or forwarding headers before contacting PowerDNS, MUST authenticate upstream requests with only the configured PowerDNS API key, and MUST NOT expose either credential in a response or error. Every authenticated response MUST include Cache-Control no-store. Browser support MUST NOT change the pinned upstream route classes or make new browser/static routes into upstream passthroughs.
 
 #### Scenario: Client credential replacement
 - **WHEN** an authenticated request is forwarded
 - **THEN** PowerDNS receives the configured upstream API key and does not receive the caller's DANS token
 
 #### Scenario: Spoofed forwarding headers
-- **WHEN** a caller supplies `Forwarded`, `X-Forwarded-*`, `Connection`, or a header named by `Connection`
+- **WHEN** a caller supplies Forwarded, X-Forwarded-*, Connection, or a header named by Connection
 - **THEN** DANS removes those values before making the upstream request
 
 #### Scenario: Missing or invalid client token
-- **WHEN** `X-API-Key` is missing or does not identify an enabled DANS identity
-- **THEN** DANS returns `401 Unauthorized`, exposes no credential detail, and sends no upstream request
+- **WHEN** neither the supported header credential nor browser credential establishes an enabled DANS identity
+- **THEN** DANS returns 401 Unauthorized, exposes no credential detail, and sends no upstream request
 
 #### Scenario: Authenticated response caching
 - **WHEN** DANS returns any response to an authenticated request
-- **THEN** the response contains `Cache-Control: no-store`
+- **THEN** the response contains Cache-Control no-store
+
+#### Scenario: Browser credentials remain local
+- **WHEN** a browser-authenticated caller issues an authorized PowerDNS operation
+- **THEN** the upstream request contains no browser cookie, session secret, or original API token
+- **AND** the compatibility response retains its existing status/body/header fidelity
 
 ### Requirement: Upstream response fidelity
 DANS SHALL return the upstream status code, body bytes, and end-to-end response headers without wrapping, decoding, schema-validating, or redacting them. It MUST remove hop-by-hop response headers and MUST apply only DANS-owned security or tracing headers in addition to the preserved upstream response.

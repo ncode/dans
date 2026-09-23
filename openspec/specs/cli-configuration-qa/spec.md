@@ -176,3 +176,146 @@ Each release SHALL publish checksummed Linux amd64 and arm64 executables and a n
 #### Scenario: Published binary integrity is checked
 - **WHEN** an operator verifies a Linux amd64 or arm64 executable against the release checksum
 - **THEN** the checksum identifies the published artifact exactly
+
+### Requirement: Development smoke offers explicit host access verification
+The development workflow SHALL provide `make smoke-host` on macOS and Linux to verify published loopback HTTP and authoritative DNS access using a unique smoke fixture. The command SHALL include the existing delegated-write, denial, and audit checks, preserve their retained-fixture behavior, and report failure if any required check fails. Ordinary startup and `make smoke` MUST retain their Docker Compose v2 and Make prerequisite contract.
+
+#### Scenario: Host tools are installed
+- **WHEN** the stack is running and the caller runs `make smoke-host` with the required host tools
+- **THEN** the command exercises one unique smoke fixture and reports success only after internal authorization/audit checks and all host probes succeed
+
+#### Scenario: Host tools are unavailable
+- **WHEN** a host verification prerequisite is missing
+- **THEN** the command fails with a specific prerequisite diagnostic before creating a smoke fixture, while the ordinary Docker-only smoke workflow remains available
+
+### Requirement: Host smoke verifies published HTTP and both DNS transports
+Host smoke SHALL verify the expected readiness response and console shell through the published loopback HTTP port and the fixture's exact authoritative DNS answer through the published DNS port over both UDP and TCP. Requests MUST originate from the developer or CI host, honor the existing HTTP/DNS port overrides, bypass HTTP proxies for loopback probes, and use bounded request times. DNS UDP checks MUST NOT fall back to TCP.
+
+#### Scenario: Default ports are reachable
+- **WHEN** HTTP and both DNS transports are published on their documented default ports
+- **THEN** host smoke verifies HTTP readiness and console delivery plus a successful authoritative DNS response containing the fixture's owner, type, and value over each transport
+
+#### Scenario: Ports are overridden
+- **WHEN** the caller uses the existing HTTP and DNS port overrides consistently for startup and smoke
+- **THEN** all host probes use the overridden ports and do not probe the defaults
+
+#### Scenario: A published path fails while internal services remain healthy
+- **WHEN** the HTTP, UDP DNS, or TCP DNS host publication is independently unavailable while internal smoke still works
+- **THEN** host smoke fails within its bounded probe time and identifies the failing protocol and effective port
+
+#### Scenario: An endpoint returns the wrong content
+- **WHEN** HTTP returns a generic page instead of the expected readiness/console content or DNS returns a wrong owner, type, value, non-authoritative response, or error status
+- **THEN** host smoke fails even if the underlying connection succeeded
+
+#### Scenario: Loopback requests would otherwise use a proxy
+- **WHEN** the host has HTTP proxy environment settings
+- **THEN** the HTTP probes still contact the published loopback listener directly
+
+### Requirement: Host verification preserves the local exposure boundary
+Host verification MUST NOT require publishing the database or upstream management API, broadening listener bindings, reading operator credentials for public HTTP probes, or adding production test endpoints. Diagnostics SHALL identify failed checks without printing credentials or authentication headers.
+
+#### Scenario: A host access check fails
+- **WHEN** host smoke reports a failed HTTP or DNS probe
+- **THEN** its diagnostic contains only the relevant check and nonsecret result, and the command does not alter network exposure to repair the failure
+
+### Requirement: CI verifies the development quickstart lifecycle
+For pull requests and pushes, CI SHALL run the development documentation contract and the root development-stack workflow on Linux with failure propagation and an explicit execution timeout. The check SHALL exercise the documented Make commands against a fresh disposable installation in addition to the existing real-system integration gate.
+
+#### Scenario: First startup and smoke succeed
+- **WHEN** the check starts from a fresh checkout without local development state
+- **THEN** startup produces a ready installation and usable local operator access, and both delegated-write smoke and host HTTP/DNS verification succeed
+
+#### Scenario: Repeated startup preserves a working installation
+- **WHEN** startup is repeated on the same healthy installation
+- **THEN** the check verifies unchanged operator credentials and identity, preserved fixture data, and successful readiness without duplicate initialization
+
+#### Scenario: Stop and start preserve both data stores
+- **WHEN** the check stops the stack and starts it again
+- **THEN** the original database fixture, audit history, authoritative DNS record, and local credential remain usable
+
+### Requirement: CI verifies development credential recovery and reset boundaries
+The development lifecycle check SHALL verify missing and rejected credential recovery, explicit reset confirmation, removal of the entire disposable installation on confirmed reset, and successful initialization afterward.
+
+#### Scenario: Missing credential is recovered without resetting data
+- **WHEN** the check removes its own local operator token file and starts the initialized stack
+- **THEN** a usable replacement is installed while the existing operator identity and fixture data are preserved
+
+#### Scenario: Revoked credential is replaced without reactivation
+- **WHEN** the check revokes its local operator token and repeats startup
+- **THEN** a new credential works, the revoked credential remains rejected, and existing fixtures persist
+
+#### Scenario: Reset without confirmation changes nothing
+- **WHEN** the check requests reset without confirmation
+- **THEN** reset fails and leaves project metadata, credential bytes, volumes, and fixtures unchanged
+
+#### Scenario: Confirmed reset is complete
+- **WHEN** the check confirms reset of its disposable installation
+- **THEN** its containers, data volumes, credential, and project metadata are removed, and the next startup creates a usable new installation without the old database or DNS fixtures
+
+### Requirement: Development lifecycle verification is isolated and produces sanitized evidence
+The lifecycle check SHALL refuse pre-existing local development state, operate only on resources owned by its disposable run, and attempt scoped cleanup on success and failure without hiding a failing result. Published output and artifacts MUST exclude credential values, secret files, raw startup output, private machine paths, and unrelated operational identifiers.
+
+#### Scenario: A checkout already has development state
+- **WHEN** the check is invoked in a checkout containing an existing local project identity or credential
+- **THEN** it fails before mutating that installation and identifies the need for a disposable checkout
+
+#### Scenario: Verification fails after startup
+- **WHEN** a lifecycle assertion fails after test resources have been created
+- **THEN** the check remains failed, attempts to remove only its owned resources, and emits a sanitized phase/result diagnostic
+
+#### Scenario: Startup emits a sign-in secret
+- **WHEN** the lifecycle check captures startup output containing the generated operator token
+- **THEN** the token and raw output are withheld from CI logs and uploaded artifacts on both success and failure
+
+### Requirement: Successful development startup verifies operator access
+Development startup SHALL report success only after the service is ready and its chosen local credential authenticates as the expected enabled development operator through the public self-identity API. A valid cached credential SHALL be reused without issuing a replacement and SHALL retain restrictive file permissions.
+
+#### Scenario: Cached token is valid for the expected operator
+- **WHEN** startup finds a valid local credential for the expected enabled operator
+- **THEN** it verifies that identity and operator role, preserves the credential bytes, enforces mode 0600, and completes without issuing another token
+
+#### Scenario: Cached token authenticates as an unexpected identity
+- **WHEN** the credential authenticates successfully as a different identity or without the operator role
+- **THEN** startup fails with a nonsecret diagnostic and does not promote the identity or replace the credential with privileged access
+
+#### Scenario: Old local credentials remain beside a new empty database
+- **WHEN** startup encounters an empty migrated database while an old local token file still exists
+- **THEN** it initializes the installation through bootstrap before requiring readiness and replaces the old file only after validating the new operator credential
+
+### Requirement: Automatic development recovery is bounded and preserves authority
+For an initialized ready development installation, startup SHALL attempt recovery of a missing/empty local credential or a well-formed credential rejected with HTTP 401 using the existing offline recovery command for the expected development operator. It MUST NOT create, enable, or promote identities during recovery, reactivate revoked tokens, reset data, or finalize a restore. Each invocation SHALL make at most one bootstrap attempt and one recovery attempt.
+
+#### Scenario: Local token file is absent
+- **WHEN** an initialized ready installation has no usable token file
+- **THEN** startup obtains and validates one replacement for the existing enabled development operator while preserving database and DNS data
+
+#### Scenario: Token is revoked, expired, or unknown
+- **WHEN** an initialized ready installation rejects a well-formed cached token with HTTP 401 and the expected development operator remains enabled
+- **THEN** startup obtains and validates a replacement, preserves existing data and identity, and leaves the old token rejected
+
+#### Scenario: Expected operator is disabled, demoted, or absent
+- **WHEN** offline recovery cannot issue a credential for an existing enabled development operator
+- **THEN** startup fails without modifying identity authority or deleting the cached token and does not retry issuance indefinitely
+
+#### Scenario: Dependency or configuration failure occurs
+- **WHEN** validation fails because of a malformed cached token in an initialized installation, transport error, server error, unexpected HTTP status, or malformed success response
+- **THEN** startup fails without invoking credential recovery or replacing the cached file
+
+#### Scenario: Installation requires restore finalization
+- **WHEN** readiness fails because the installation requires an explicit restore workflow
+- **THEN** startup reports failure and does not finalize the restore, reset the stack, or treat the readiness failure as token rejection
+
+### Requirement: Development credential replacement is validated and atomic
+Startup SHALL validate a newly issued credential before atomically installing it in the local token file. Temporary credential files MUST have mode 0600 in a mode-0700 directory, and unsuccessful validation or replacement MUST preserve any pre-existing token file. Credential-validation diagnostics MUST NOT expose secrets; the existing local console sign-in presentation SHALL occur only after complete startup success.
+
+#### Scenario: Replacement succeeds
+- **WHEN** a bootstrap or recovery candidate authenticates as the expected enabled operator and the local file can be replaced
+- **THEN** the token file is replaced atomically with mode 0600 and startup reports success
+
+#### Scenario: Candidate validation or file publication fails
+- **WHEN** the replacement cannot be validated or installed
+- **THEN** startup fails, preserves any prior token file, removes its own temporary credential files where cleanup can run, and does not print the candidate secret
+
+#### Scenario: Issuance is interrupted
+- **WHEN** execution stops after database issuance but before local replacement
+- **THEN** the previous local file remains intact and the next invocation remains subject to the same bounded recovery rules without revoking unrelated credentials
