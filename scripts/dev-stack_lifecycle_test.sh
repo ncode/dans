@@ -1966,6 +1966,30 @@ assert_token() {
 	[ "$(token_mode "$token_file")" = 600 ] || fail 'operator credential is not mode 600'
 }
 
+assert_startup_token() {
+	phase=$1
+	expected_token=$(read_token)
+	[ "$(grep -Ec 'dans_v1_[A-Za-z0-9_-]+' "$run/$phase.out" || true)" -eq 1 ] &&
+		grep -Fxq "Console token: $expected_token" "$run/$phase.out" ||
+		fail "$phase did not present only the validated credential"
+	! grep -Eq 'dans_v1_[A-Za-z0-9_-]+' "$run/$phase.err" ||
+		fail "$phase exposed a credential on stderr"
+	if [ "$#" -gt 1 ]; then
+		! grep -Fq "$2" "$run/$phase.out" "$run/$phase.err" ||
+			fail "$phase exposed the previous credential"
+	fi
+}
+
+assert_token_count() {
+	phase=$1
+	auth_token=$2
+	expected_count=$3
+	run_phase "$phase" cli "$auth_token" me tokens
+	actual_count=$(jq -er '.items | length' "$run/$phase.out" 2>/dev/null) ||
+		fail 'operator token count could not be read'
+	[ "$actual_count" -eq "$expected_count" ] || fail "$phase issued an unexpected number of credentials"
+}
+
 assert_identity() {
 	file=$1
 	jq -e '.handle == "dev-operator" and .enabled == true and .operator == true' \
@@ -2069,11 +2093,13 @@ owned=1
 claim_ownership
 run_phase first-up run_make up
 assert_token
+assert_startup_token first-up
 assert_project
 save_token first
 token=$(read_token)
 run_phase first-identity cli "$token" me get
 assert_identity "$run/first-identity.out"
+assert_token_count first-tokens "$token" 1
 operator_id=$(jq -er '.id' "$run/first-identity.out" 2>/dev/null) || fail 'first operator identity could not be identified'
 printf '%s\n' "$operator_id" >"$run/fixture.operator-id"
 run_phase first-status run_make status
@@ -2108,6 +2134,8 @@ fi
 save_token repeated
 run_phase repeated-up run_make up
 cmp -s "$run/repeated.token" "$token_file" || fail 'repeated startup replaced a valid credential'
+assert_startup_token repeated-up
+assert_token_count repeated-tokens "$(read_token)" 1
 assert_persisted
 
 run_phase down run_make down
@@ -2117,14 +2145,18 @@ fi
 [ -z "$remaining_containers" ] || fail 'down left containers behind'
 run_phase restart-up run_make up
 cmp -s "$run/repeated.token" "$token_file" || fail 'stop/start replaced a valid credential'
+assert_startup_token restart-up
+assert_token_count restart-tokens "$(read_token)" 1
 assert_persisted
 
 rm -f "$token_file"
 run_phase missing-token-up run_make up
 assert_token
+assert_startup_token missing-token-up "$(sed -n '1p' "$run/repeated.token")"
 token=$(read_token)
 run_phase missing-token-identity cli "$token" me get
 assert_identity "$run/missing-token-identity.out"
+assert_token_count missing-token-count "$token" 2
 assert_persisted
 
 save_token revoked
@@ -2134,6 +2166,7 @@ token_id=$(jq -er '[.items[] | select((.label // "") | startswith("local-recover
 run_phase revoke-token cli "$token" me token-revoke "$token_id"
 run_phase revoked-token-up run_make up
 assert_token
+assert_startup_token revoked-token-up "$(sed -n '1p' "$run/revoked.token")"
 if cmp -s "$run/revoked.token" "$token_file"; then
 	fail 'revoked credential was reused'
 fi
@@ -2141,6 +2174,39 @@ token=$(read_token)
 run_phase revoked-token-identity cli "$token" me get
 assert_identity "$run/revoked-token-identity.out"
 expect_failure revoked-token-rejected 1 '401 Unauthorized' cli "$(sed -n '1p' "$run/revoked.token")" me get
+assert_token_count revoked-token-count "$token" 3
+assert_persisted
+run_phase recovery-smoke run_make smoke
+
+save_token expired
+run_phase expiring-token-list cli "$token" me tokens
+token_id=$(jq -er '[.items[] | select(.status == "active" and ((.label // "") | startswith("local-recovery-")))] | first | .id' \
+	"$run/expiring-token-list.out" 2>/dev/null) || fail 'token to expire could not be identified'
+run_phase expire-token compose exec -T postgres psql -X -v ON_ERROR_STOP=1 \
+	-U dans_ddl -d dans -c "UPDATE api_tokens SET created_at = statement_timestamp() - interval '2 seconds', expires_at = statement_timestamp() - interval '1 second' WHERE id = '$token_id'::uuid"
+grep -Fxq 'UPDATE 1' "$run/expire-token.out" || fail 'token expiry did not update exactly one row'
+expect_failure expired-token-rejected 1 '401 Unauthorized' cli "$(sed -n '1p' "$run/expired.token")" me get
+run_phase expired-token-up run_make up
+assert_token
+assert_startup_token expired-token-up "$(sed -n '1p' "$run/expired.token")"
+token=$(read_token)
+run_phase expired-token-identity cli "$token" me get
+assert_operator_identity "$run/expired-token-identity.out" "$operator_id"
+expect_failure expired-token-still-rejected 1 '401 Unauthorized' cli "$(sed -n '1p' "$run/expired.token")" me get
+assert_token_count expired-token-count "$token" 4
+assert_persisted
+
+unknown_token=dans_v1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+printf '%s\n' "$unknown_token" >"$token_file"
+expect_failure unknown-token-rejected 1 '401 Unauthorized' cli "$unknown_token" me get
+run_phase unknown-token-up run_make up
+assert_token
+assert_startup_token unknown-token-up "$unknown_token"
+token=$(read_token)
+run_phase unknown-token-identity cli "$token" me get
+assert_operator_identity "$run/unknown-token-identity.out" "$operator_id"
+expect_failure unknown-token-still-rejected 1 '401 Unauthorized' cli "$unknown_token" me get
+assert_token_count unknown-token-count "$token" 5
 assert_persisted
 
 save_token reset
@@ -2158,8 +2224,12 @@ owned=0
 
 owned=1
 claim_ownership
+mkdir -m 700 "$root/.dans/dev"
+cp "$run/reset.token" "$token_file"
+cp "$run/reset.project" "$project_file"
 run_phase fresh-up run_make up
 assert_token
+assert_startup_token fresh-up "$(sed -n '1p' "$run/reset.token")"
 assert_project
 if cmp -s "$run/reset.token" "$token_file"; then
 	fail 'fresh startup reused the reset credential'
@@ -2167,6 +2237,7 @@ fi
 token=$(read_token)
 run_phase fresh-identity cli "$token" me get
 assert_identity "$run/fresh-identity.out"
+assert_token_count fresh-token-count "$token" 1
 fresh_operator_id=$(jq -er '.id' "$run/fresh-identity.out" 2>/dev/null) || fail 'fresh operator identity could not be identified'
 [ "$fresh_operator_id" != "$operator_id" ] || fail 'fresh startup reused the old operator identity'
 expect_failure fresh-old-token-rejected 1 '401 Unauthorized' cli "$(sed -n '1p' "$run/reset.token")" me get
