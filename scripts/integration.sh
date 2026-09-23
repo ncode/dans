@@ -43,6 +43,12 @@ compose() {
 	docker compose --project-name "$project" --file "$compose_file" "$@"
 }
 
+mark_phase() {
+	if [ -n "${DANS_QA_PHASE_FILE:-}" ]; then
+		printf '%s\n' "$1" >"$DANS_QA_PHASE_FILE"
+	fi
+}
+
 collect_logs() {
 	mkdir -p "$log_dir"
 	compose ps --all >"$log_dir/compose-ps.txt" 2>&1 || true
@@ -197,6 +203,7 @@ create_delegation() {
 }
 
 printf '%s\n' "integration: PostgreSQL $major_minor"
+mark_phase setup
 compose build dans-a
 footprint_container=$(docker container create "$DANS_IMAGE" version)
 rootfs_bytes=$(docker container inspect --size --format '{{.SizeRootFs}}' "$footprint_container")
@@ -204,6 +211,7 @@ rootfs_bytes=$(docker container inspect --size --format '{{.SizeRootFs}}' "$foot
 docker container rm "$footprint_container" >/dev/null
 footprint_container=
 printf '%s\n' "integration: OCI root filesystem $rootfs_bytes bytes"
+mark_phase services
 compose up --detach postgres powerdns toxiproxy
 wait_for PostgreSQL compose exec -T postgres pg_isready -h 127.0.0.1 -U dans_ddl -d dans
 toxiproxy create --listen 0.0.0.0:18081 --upstream powerdns:8081 powerdns >/dev/null
@@ -246,9 +254,11 @@ else
 fi
 
 if [ -n "${DANS_QA_PERFORMANCE_DIR:-}" ]; then
+	mark_phase measurement
 	"$root/scripts/measure-runtime.sh" "$compose_file" "$project" dans-a "$a_root" "$DANS_QA_PERFORMANCE_DIR"
 fi
 
+mark_phase exercise
 forward_zone=$(cli_data '{"name":"example.test.","kind":"Native","nameservers":["ns1.example.test."]}' dans-a "$operator_token" zones create)
 forward_zone_id=$(printf '%s' "$forward_zone" | jq -er '.id')
 forward_binding=$(binding_for example.test.)

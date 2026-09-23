@@ -192,10 +192,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y dnsutils
       - name: Run real-system integration
+        id: real_system
         env:
           DANS_QA_LOG_DIR: ${{ runner.temp }}/dans-integration-logs/${{ matrix.name }}
+          DANS_QA_SUMMARY_DIR: ${{ runner.temp }}/dans-integration-summary/${{ matrix.name }}
           DANS_QA_PERFORMANCE_DIR: ${{ runner.temp }}/dans-performance/${{ matrix.name }}
-        run: scripts/integration.sh "${{ matrix.postgres }}"
+        run: scripts/integration-ci.sh scripts/integration.sh "${{ matrix.postgres }}"
       - name: Upload performance measurements
         if: always()
         uses: actions/upload-artifact@v4
@@ -204,9 +206,9 @@ jobs:
           path: ${{ runner.temp }}/dans-performance/${{ matrix.name }}
           if-no-files-found: warn
       - name: Upload integration diagnostics
-        if: failure()
+        if: failure() && steps.real_system.outcome == 'failure'
         uses: actions/upload-artifact@v4
         with:
           name: dans-integration-${{ matrix.name }}
-          path: ${{ runner.temp }}/dans-integration-logs/${{ matrix.name }}
-          if-no-files-found: warn
+          path: ${{ runner.temp }}/dans-integration-summary/${{ matrix.name }}
+          if-no-files-found: ignore
