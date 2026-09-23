@@ -13,6 +13,12 @@
 
 ## 3. Real-stack validation and handoff
 
-- [ ] 3.1 Verify valid reuse, missing-token recovery, revoked/expired/unknown credential handling, and fresh-database bootstrap with an old file using disposable fixtures; assert identity/data preservation and absence of unnecessary token issuance.
-- [ ] 3.2 Verify the revoked token remains rejected, ordinary smoke still succeeds after recovery, and successful startup presents only the validated final credential.
-- [ ] 3.3 Run focused behavior checks and `make dev-contract`, record sanitized results for the lifecycle CI change, and validate this OpenSpec change strictly before publication review.
+- [x] 3.1 Verify valid reuse, missing-token recovery, revoked/expired/unknown credential handling, and fresh-database bootstrap with an old file using disposable fixtures; assert identity/data preservation and absence of unnecessary token issuance.
+- [x] 3.2 Verify the revoked token remains rejected, ordinary smoke still succeeds after recovery, and successful startup presents only the validated final credential.
+- [x] 3.3 Run focused behavior checks and `make dev-contract`, record sanitized results for the lifecycle CI change, and validate this OpenSpec change strictly before publication review.
+
+## Verification notes
+
+- Three full disposable-stack lifecycle runs passed locally, including credential reuse, all recovery cases, post-recovery smoke, and fresh-database bootstrap with an old token file.
+- `make dev-contract`, shell syntax, Compose configuration, and `git diff --check` passed locally.
+- The existing Linux development-stack CI job runs the same lifecycle script. `openspec validate recover-stale-dev-credentials --strict` passed.
