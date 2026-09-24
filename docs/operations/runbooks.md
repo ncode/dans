@@ -52,7 +52,7 @@ Store the dump, checksum, DANS version, and expected schema status together. A D
 Never start an API instance against restored state before finalization.
 
 1. Stop every DANS API instance and block ingress traffic.
-2. Restore the verified database backup into a clean database using the matching DANS release and reapply the runtime grants.
+2. Restore the verified database backup into a clean, isolated database using the matching DANS release and reapply the runtime grants. Keep every DANS instance for that restored database stopped; do not point ingress or a background instance at it yet.
 3. Select an existing enabled operator by UUID or handle and finalize with the runtime database credential:
 
    ```sh
@@ -63,7 +63,9 @@ Never start an API instance against restored state before finalization.
    ```
 
 4. Store the replacement secret immediately. Finalization revokes every token in the restored state and emits exactly one new operator token; all old client secrets must now receive HTTP 401.
-5. Start only the matching release, wait for readiness on every instance, then reopen the TLS ingress.
+5. Start only the matching release, wait for readiness on every instance, verify the replacement credential authenticates as the same operator, and confirm captured pre-restore credentials receive HTTP 401 before reopening the TLS ingress. Check that expected identity, delegation, and audit history survived the database restore.
+
+A standard PostgreSQL restore preserves the installation metadata and cannot be recognized automatically as a copy. The stop → restore → offline finalize → start order is therefore an operator-enforced boundary, not a readiness check that detects an accidental early start. The integration gate rehearses this sequence against disposable PostgreSQL 16 and 18 databases, but PowerDNS data backup and recovery remain separate procedures.
 
 If finalization fails, keep every instance stopped, preserve its diagnostic and database logs, and retry only after correcting the durable database problem. The command is intentionally unavailable over HTTP.
 

@@ -67,6 +67,15 @@ services:
     ports:
       - "127.0.0.1:${DANS_BAD_KEY_PORT:?}:8080"
 
+  dans-restored:
+    <<: *dans
+    profiles: [restore]
+    environment:
+      <<: *dans-environment
+      DANS_DATABASE_URL: postgres://dans_runtime:dans-runtime@postgres/dans_restored?sslmode=disable
+    ports:
+      - "127.0.0.1:${DANS_RESTORED_PORT:?}:8080"
+
   cli:
     image: ${DANS_IMAGE:?set DANS_IMAGE to the integration image tag}
     entrypoint: ["/usr/local/bin/dans"]
