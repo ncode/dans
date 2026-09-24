@@ -1465,7 +1465,6 @@ launch_supervised() {
 				sleep 10 &
 				watchdog_sleep_pid=$!
 				watchdog_sleep_identity=$(watchdog_process_identity "$watchdog_sleep_pid" || true)
-				[ -n "$watchdog_sleep_identity" ] || exit 125
 				printf "%s\\n%s\\n" "$watchdog_sleep_pid" "$watchdog_sleep_identity" >"$launch_marker.watchdog"
 				if wait "$watchdog_sleep_pid" 2>/dev/null; then
 					watchdog_sleep_pid=

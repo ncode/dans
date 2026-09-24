@@ -58,6 +58,10 @@ grep -Fq -- '--max-time 5' "$lifecycle" || fail "host HTTP probes are unbounded"
 grep -Fq '+time=2 +tries=1' "$lifecycle" || fail "host DNS probes are unbounded"
 grep -Fq 'smoke-host' "$readme" || fail "README omits host smoke"
 
+for phase in setup credential-cases log-stream log-stream-wait launcher-drain interrupt-shutdown lock-contention lock-release-wait state-paths project-lock project-lock-release-wait reset-recovery cleanup; do
+	grep -Fq "'dev stack contract: phase=$phase'" "$root/scripts/dev-stack_test.sh" || fail "missing fixed dev stack phase $phase"
+done
+
 grep -Fq 'db migrate' "$lifecycle" || fail "startup does not run migrations"
 grep -Fq 'runtime.sql' "$lifecycle" || fail "startup does not apply runtime grants"
 grep -Fq 'bootstrap' "$lifecycle" || fail "startup does not bootstrap a DANS operator"

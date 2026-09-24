@@ -72,10 +72,16 @@ grep -Fq 'scripts/oci-smoke.sh dans-ci-smoke linux/arm64' "$workflow" || fail "C
 grep -Fq 'DANS_QA_PERFORMANCE_DIR' "$workflow" || fail "CI does not retain repeated runtime measurements"
 grep -Eq '^FROM .*golang:\$\{GO_VERSION\}-alpine@sha256:[0-9a-f]{64} AS build$' "$root/Dockerfile" || fail "the Go builder image is not digest-pinned"
 grep -Fq 'scripts/integration.sh' "$workflow" || fail "real-system integration is not required in CI"
+grep -Fq 'scripts/integration-ci.sh scripts/integration.sh' "$workflow" || fail "CI bypasses the safe integration entry point"
+grep -Fq 'path: ${{ runner.temp }}/dans-integration-summary/${{ matrix.name }}' "$workflow" || fail "CI does not upload the safe integration summary"
+if grep -Fq 'path: ${{ runner.temp }}/dans-integration-logs/' "$workflow"; then
+	fail "CI uploads raw integration logs"
+fi
 grep -Fq 'postgres:16.14' "$workflow" || fail "CI omits PostgreSQL 16.14"
 grep -Fq 'postgres:18.4' "$workflow" || fail "CI omits PostgreSQL 18.4"
 if grep -Fq '\${{' "$workflow"; then
 	fail "CI contains escaped GitHub expressions"
 fi
 
+"$root/scripts/integration-ci_test.sh"
 printf '%s\n' 'integration contract: ok'
