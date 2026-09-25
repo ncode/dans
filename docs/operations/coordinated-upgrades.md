@@ -34,17 +34,19 @@ and remains unready because its expected migration ledger differs.
 To return to an older release after migration:
 
 1. Stop all DANS instances.
-2. Restore the verified backup created for that older release.
+2. Restore the verified backup created for that older release into an isolated database and reapply runtime grants. Keep every instance for that database stopped.
 3. Run that release's `restore finalize --confirm` maintenance command. This revokes every
    token restored from the backup and emits one replacement enabled-operator
    token exactly once.
 4. Start only the matching older binary and verify readiness before reopening
    management traffic.
 
-All instances must remain stopped or drained between steps 1 and 4. A standard
-PostgreSQL restore does not carry a signal that DANS can use to distinguish the
-restored copy from the original database, so starting an instance before restore
-finalization is unsupported and cannot be detected automatically. Never edit
+All instances must remain stopped or drained between steps 1 and 4. The
+[restore runbook](runbooks.md#restore-finalization) gives the exercised credential
+and data checks before reopening ingress. A standard PostgreSQL restore does not
+carry a signal that DANS can use to distinguish the restored copy from the original
+database, so starting an instance before restore finalization is unsupported and
+cannot be detected automatically. Never edit
 `schema_migrations`, copy authority into a new schema, or reopen traffic before
 the replacement credential has been issued.
 

@@ -16,7 +16,7 @@ fail() {
 [ -f "$harness" ] || fail "missing scripts/integration.sh"
 [ -x "$measurement" ] || fail "missing executable runtime measurement harness"
 
-for service in postgres powerdns toxiproxy dans-a dans-b; do
+for service in postgres powerdns toxiproxy dans-a dans-b dans-restored; do
 	grep -Eq "^  $service:" "$compose" || fail "compose service $service is missing"
 done
 
@@ -31,6 +31,9 @@ grep -Fq 'dans-b:' "$compose" || fail "second DANS instance is missing"
 grep -Fq '${DANS_A_PORT:?}' "$compose" || fail "the first DANS loopback port is not explicit"
 grep -Fq '${DANS_B_PORT:?}' "$compose" || fail "the second DANS loopback port is not explicit"
 grep -Fq '${DANS_BAD_KEY_PORT:?}' "$compose" || fail "the fault-instance loopback port is not explicit"
+grep -Fq '${DANS_RESTORED_PORT:?}' "$compose" || fail "the restored-instance loopback port is not explicit"
+grep -Fq 'profiles: [restore]' "$compose" || fail "the restored instance is not isolated behind a profile"
+grep -Fq 'compose --profile faults --profile tools --profile restore down' "$harness" || fail "the restored instance is not included in scoped teardown"
 grep -Fq '${POWERDNS_PORT:?}' "$compose" || fail "the PowerDNS loopback port is not explicit"
 
 if grep -Eq '(^|[^[:alnum:]_])sleep([[:space:]]|$)' "$harness"; then
@@ -39,6 +42,16 @@ fi
 grep -Fq 'collect_logs' "$harness" || fail "failure logs are not collected"
 grep -Fq 'db migrate' "$harness" || fail "migration is not driven by the compiled CLI"
 grep -Fq 'bootstrap' "$harness" || fail "bootstrap is not driven by the compiled CLI"
+grep -Fq 'pg_dump --format=custom' "$harness" || fail "the populated database is not backed up"
+grep -Fq 'pg_restore' "$harness" || fail "a database copy is not restored"
+grep -Fq 'restore finalize' "$harness" || fail "the restored copy is not finalized offline"
+grep -Fq 'preserved_after=$(preserved_state)' "$harness" || fail "finalization does not verify preserved authorization and audit state"
+if grep -Eq 'cli dans-restored .*\| jq' "$harness"; then
+	fail "restored CLI failures can be hidden by a jq pipeline"
+fi
+finalize_line=$(grep -n 'restore finalize' "$harness" | cut -d: -f1)
+start_line=$(grep -n 'compose --profile restore up --detach dans-restored' "$harness" | cut -d: -f1)
+[ -n "$start_line" ] && [ "$finalize_line" -lt "$start_line" ] || fail "the restored service starts before finalization"
 grep -Fq '/readyz' "$harness" || fail "readiness is not polled"
 grep -Fq 'dig ' "$harness" || fail "authoritative DNS is not queried"
 grep -Fq 'toxiproxy' "$harness" || fail "external upstream fault control is missing"

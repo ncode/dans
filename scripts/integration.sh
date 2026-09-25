@@ -37,6 +37,7 @@ export DANS_A_PORT=${DANS_A_PORT:-$port_base}
 export DANS_B_PORT=${DANS_B_PORT:-$(( port_base + 1 ))}
 export POWERDNS_PORT=${POWERDNS_PORT:-$(( port_base + 2 ))}
 export DANS_BAD_KEY_PORT=${DANS_BAD_KEY_PORT:-$(( port_base + 3 ))}
+export DANS_RESTORED_PORT=${DANS_RESTORED_PORT:-$(( port_base + 4 ))}
 footprint_container=
 
 compose() {
@@ -51,8 +52,8 @@ mark_phase() {
 
 collect_logs() {
 	mkdir -p "$log_dir"
-	compose ps --all >"$log_dir/compose-ps.txt" 2>&1 || true
-	compose logs --no-color --timestamps >"$log_dir/compose.log" 2>&1 || true
+	compose --profile restore ps --all >"$log_dir/compose-ps.txt" 2>&1 || true
+	compose --profile restore logs --no-color --timestamps >"$log_dir/compose.log" 2>&1 || true
 	printf '%s\n' "integration: failure logs: $log_dir" >&2
 }
 
@@ -66,7 +67,7 @@ cleanup() {
 		docker container rm "$footprint_container" >/dev/null 2>&1 || true
 	fi
 	if [ "${DANS_QA_KEEP:-0}" != 1 ]; then
-		compose --profile faults --profile tools down --volumes --remove-orphans >/dev/null 2>&1 || true
+		compose --profile faults --profile tools --profile restore down --volumes --remove-orphans >/dev/null 2>&1 || true
 		docker image rm "$DANS_IMAGE" >/dev/null 2>&1 || true
 	fi
 	if [ -z "${DANS_QA_LOG_DIR:-}" ]; then
@@ -473,8 +474,80 @@ if grep -Eqi '(^|[[:space:]])(seed|reset|fault|introspect|metrics|pprof|profil|b
 	fail 'production CLI exposes a test-only command'
 fi
 
-compose logs --no-color dans-a dans-b >"$work/runtime.log"
-for secret in "$operator_token" "$direct_token" "$group_token" dans_v1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA; do
+mark_phase restore
+[ -z "$(compose --profile restore ps --quiet dans-restored)" ] || fail 'restored service started before finalization'
+snapshot_sql='SELECT installation_id, (SELECT count(*) FROM identities), (SELECT count(*) FROM groups), (SELECT count(*) FROM delegations), (SELECT count(*) FROM audit_events) FROM installation_metadata'
+source_snapshot=$(compose exec -T postgres psql -X -A -t -F '|' -v ON_ERROR_STOP=1 -U dans_ddl -d dans -c "$snapshot_sql")
+[ -n "$source_snapshot" ] || fail 'source database snapshot is empty'
+source_populated=$(compose exec -T postgres psql -X -A -t -v ON_ERROR_STOP=1 -U dans_ddl -d dans -c 'SELECT EXISTS(SELECT 1 FROM identities) AND EXISTS(SELECT 1 FROM delegations) AND EXISTS(SELECT 1 FROM audit_events)')
+[ "$source_populated" = t ] || fail 'source database lacks restore fixtures'
+compose exec -T postgres sh -c 'umask 077; pg_dump --format=custom -U dans_ddl -d dans --file=/tmp/dans-restore.dump'
+compose exec -T postgres test -s /tmp/dans-restore.dump || fail 'database backup is empty'
+compose exec -T postgres createdb -U dans_ddl -O dans_ddl dans_restored
+compose exec -T postgres pg_restore --exit-on-error --no-owner --no-acl -U dans_ddl -d dans_restored /tmp/dans-restore.dump
+compose exec -T postgres rm -f /tmp/dans-restore.dump
+compose exec -T postgres psql -X -v ON_ERROR_STOP=1 -U dans_ddl -d dans_restored \
+	--set=database_name=dans_restored --set=schema_name=public --set=runtime_role=dans_runtime \
+	--file=/dans/runtime.sql >/dev/null
+restored_snapshot=$(compose exec -T postgres psql -X -A -t -F '|' -v ON_ERROR_STOP=1 -U dans_ddl -d dans_restored -c "$snapshot_sql")
+[ "$restored_snapshot" = "$source_snapshot" ] || fail 'restored identity, authority, or audit state differs from backup'
+preexisting_finalizations=$(compose exec -T postgres psql -X -A -t -v ON_ERROR_STOP=1 -U dans_ddl -d dans_restored -c "SELECT count(*) FROM audit_events WHERE action = 'restore.finalize'")
+[ "$preexisting_finalizations" -eq 0 ] || fail 'restored fixture already contains a finalization event'
+historical_audit_id=$(compose exec -T postgres psql -X -A -t -v ON_ERROR_STOP=1 -U dans_ddl -d dans_restored -c 'SELECT id FROM audit_events ORDER BY occurred_at, id LIMIT 1')
+preserved_state() {
+	compose exec -T postgres psql -X -A -t -v ON_ERROR_STOP=1 -U dans_ddl -d dans_restored -c "SELECT md5(jsonb_build_object(
+		'identities', (SELECT jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)) FROM identities t),
+		'groups', (SELECT jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)) FROM groups t),
+		'memberships', (SELECT jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)) FROM group_memberships t),
+		'bindings', (SELECT jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)) FROM zone_bindings t),
+		'delegations', (SELECT jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)) FROM delegations t),
+		'selectors', (SELECT jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)) FROM delegation_selectors t),
+		'record_types', (SELECT jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)) FROM delegation_record_types t),
+		'change_kinds', (SELECT jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)) FROM delegation_change_kinds t),
+		'audit', (SELECT jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)) FROM audit_events t WHERE action <> 'restore.finalize')
+	)::text)"
+}
+preserved_before=$(preserved_state)
+
+if restore_result=$(compose run --rm --no-deps -T \
+	-e DANS_DATABASE_URL='postgres://dans_runtime:dans-runtime@postgres/dans_restored?sslmode=disable' \
+	-e DANS_OUTPUT=json dans-a restore finalize --handle operator --token-label restored --confirm 2>"$work/restore-finalize.err"); then
+	:
+else
+	fail 'restore finalization failed'
+fi
+operator_id=$(printf '%s' "$bootstrap" | jq -er '.identity_id')
+restored_operator_id=$(printf '%s' "$restore_result" | jq -er '.identity_id')
+[ "$restored_operator_id" = "$operator_id" ] || fail 'restore finalization changed operator identity'
+replacement_token=$(printf '%s' "$restore_result" | jq -er '.secret')
+unset restore_result
+active_tokens=$(compose exec -T postgres psql -X -A -t -v ON_ERROR_STOP=1 -U dans_ddl -d dans_restored -c 'SELECT count(*) FROM api_tokens WHERE revoked_at IS NULL')
+[ "$active_tokens" -eq 1 ] || fail 'restore finalization did not leave exactly one active credential'
+preserved_after=$(preserved_state)
+[ "$preserved_after" = "$preserved_before" ] || fail 'restore finalization changed historical identity, authorization, or audit state'
+finalization_events=$(compose exec -T postgres psql -X -A -t -v ON_ERROR_STOP=1 -U dans_ddl -d dans_restored -c "SELECT count(*) FROM audit_events WHERE action = 'restore.finalize'")
+[ "$finalization_events" -eq 1 ] || fail 'restore finalization did not append exactly one audit event'
+
+compose --profile restore up --detach dans-restored >/dev/null
+restored_port=$(compose --profile restore port dans-restored 8080 | awk -F: 'END { print $NF }')
+restored_root=http://127.0.0.1:$restored_port
+wait_for 'restored DANS readiness' http_is 200 "$restored_root/readyz"
+restored_me=$(cli dans-restored "$replacement_token" me get)
+printf '%s' "$restored_me" | jq -e --arg id "$operator_id" '.id == $id and .enabled == true and .operator == true' >/dev/null || fail 'replacement credential lacks the original operator identity'
+for token in "$operator_token" "$direct_token" "$group_token"; do
+	expect_cli_error 'restored credential' '401 Unauthorized' dans-restored "$token" me get
+done
+restored_identity=$(cli dans-restored "$replacement_token" identities get "$direct_id")
+printf '%s' "$restored_identity" | jq -e --arg id "$direct_id" '.id == $id' >/dev/null || fail 'restored identity is unavailable through the public API'
+restored_group=$(cli dans-restored "$replacement_token" groups get "$group_id")
+printf '%s' "$restored_group" | jq -e --arg id "$group_id" '.id == $id' >/dev/null || fail 'restored group is unavailable through the public API'
+restored_delegation=$(cli dans-restored "$replacement_token" delegations get "$direct_delegation_id")
+printf '%s' "$restored_delegation" | jq -e --arg id "$direct_delegation_id" '.id == $id' >/dev/null || fail 'restored delegation is unavailable through the public API'
+restored_audit=$(cli dans-restored "$replacement_token" audit export)
+printf '%s' "$restored_audit" | jq -se --arg id "$historical_audit_id" '[.[] | select(.id == $id)] | length == 1' >/dev/null || fail 'historical audit event is unavailable through the public API'
+
+compose --profile restore logs --no-color dans-a dans-b dans-restored >"$work/runtime.log"
+for secret in "$operator_token" "$direct_token" "$group_token" "$replacement_token" dans_v1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA; do
 	if grep -Fq "$secret" "$work/runtime.log"; then
 		fail 'runtime logs exposed a credential'
 	fi

@@ -13,12 +13,14 @@ fail() {
 secret=SYNTHETIC_CREDENTIAL_DO_NOT_PUBLISH
 path=/synthetic/private/ci-home
 identifier=SYNTHETIC_INTERNAL_NODE_DO_NOT_PUBLISH
+backup=SYNTHETIC_BACKUP_BYTES_DO_NOT_PUBLISH
+diagnostic=SYNTHETIC_RESTORE_DIAGNOSTIC_DO_NOT_PUBLISH
 
 case "${2:-}" in
-	fixture-fail | fixture-early | fixture-invalid | fixture-success)
-		printf '%s\n' "$secret $path $identifier"
-		printf '%s\n' "$secret $path $identifier" >&2
-		printf '%s\n' "$secret $path $identifier" >"$DANS_QA_LOG_DIR/compose.log"
+	fixture-fail | fixture-early | fixture-invalid | fixture-restore-fail | fixture-success)
+		printf '%s\n' "$secret $path $identifier $backup $diagnostic"
+		printf '%s\n' "$secret $path $identifier $backup $diagnostic" >&2
+		printf '%s\n' "$secret $path $identifier $backup $diagnostic" >"$DANS_QA_LOG_DIR/compose.log"
 		case "$2" in
 			fixture-fail)
 				printf '%s\n' exercise >"$DANS_QA_PHASE_FILE"
@@ -28,6 +30,10 @@ case "${2:-}" in
 			fixture-invalid)
 				printf '%s\n' "$identifier" >"$DANS_QA_PHASE_FILE"
 				exit 29
+				;;
+			fixture-restore-fail)
+				printf '%s\n' restore >"$DANS_QA_PHASE_FILE"
+				exit 31
 				;;
 			fixture-success) exit 0 ;;
 		esac
@@ -53,7 +59,7 @@ run_case() {
 	DANS_QA_SUMMARY_DIR="$tmp/$case_name/summary" \
 		"$wrapper" "$0" "$image" "fixture-$case_name" >"$tmp/$case_name-console" 2>&1 && status=0 || status=$?
 	[ "$status" -eq "$expected_status" ] || fail "$case_name exit status was $status"
-	for value in "$secret" "$path" "$identifier"; do
+	for value in "$secret" "$path" "$identifier" "$backup" "$diagnostic"; do
 		if grep -Fq "$value" "$tmp/$case_name-console" "$tmp/$case_name/summary/summary.txt" 2>/dev/null; then
 			fail "$case_name published synthetic confidential data"
 		fi
@@ -75,5 +81,6 @@ run_case() {
 run_case fail 17 exercise postgres:16.14 pg16
 run_case early 23 unknown postgres:18.4 pg18
 run_case invalid 29 unknown postgres:16.14 pg16
+run_case restore-fail 31 restore postgres:18.4 pg18
 run_case success 0 unknown postgres:16.14 pg16
 printf '%s\n' 'integration CI contract: ok'
