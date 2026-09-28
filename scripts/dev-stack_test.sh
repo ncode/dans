@@ -449,6 +449,7 @@ grep -Fq 'development stack lock ownership could not be verified' \
 
 run_scenario() {
 	name=$1
+	printf '%s\n' "dev stack contract: scenario=$name" >&2
 	expected_status=$2
 	expected_token=$3
 	token_state=$4
