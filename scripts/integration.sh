@@ -230,6 +230,33 @@ assert_recovery_preflight() {
 	return 1
 }
 
+expect_preflight_rejection() {
+	preflight_label=$1
+	preflight_stage=$2
+	shift 2
+	if "$@" >"$work/preflight-rejection.out" 2>"$work/preflight-rejection.err"; then
+		fail "$preflight_label unexpectedly passed preflight"
+	fi
+	grep -Fxq 'integration: restored PowerDNS preflight mismatch' "$work/preflight-rejection.err" || fail "$preflight_label did not report the fixed rejection label"
+	[ ! -s "$work/preflight-rejection.out" ] || fail "$preflight_label emitted unexpected output"
+	[ "$(sed -n '1p' "$work/preflight-step")" = "$preflight_stage" ] || fail "$preflight_label rejected at the wrong gate"
+}
+
+expect_compose_query_rejection() (
+	preflight_compose_mode=$1
+	compose() {
+		case " $* " in
+			*' ps --quiet dans-restored '*)
+				[ "$preflight_compose_mode" != failed ] || return 1
+				printf '%s\n' running
+				return 0
+				;;
+		esac
+		docker compose --project-name "$project" --file "$compose_file" "$@"
+	}
+	expect_preflight_rejection "$preflight_compose_mode Compose query" stopped assert_recovery_preflight
+)
+
 assert_dns_contains() {
 	name=$1
 	type=$2
@@ -578,14 +605,24 @@ compose --profile restore start powerdns-restored >/dev/null
 restored_dns_port=$(compose --profile restore port --protocol udp powerdns-restored 53 | awk -F: 'END { print $NF }')
 wait_for 'restored PowerDNS startup' pdns_cli_restored zones list
 assert_recovery_preflight || exit 1
+expect_compose_query_rejection failed
+expect_compose_query_rejection running
+(
+	pdns_cli_restored() { return 1; }
+	expect_preflight_rejection 'unavailable PowerDNS API' zones assert_recovery_preflight
+)
+(
+	source_forward=198.51.100.1
+	expect_preflight_rejection 'wrong forward answer' forward assert_recovery_preflight
+)
+(
+	source_ptr=wrong.example.test.
+	expect_preflight_rejection 'wrong PTR answer' ptr assert_recovery_preflight
+)
 compose exec -T powerdns-restored pdnsutil metadata set example.test. ALLOW-AXFR-FROM 198.51.100.0/24 >/dev/null
 mismatched_metadata=$(compose exec -T powerdns-restored pdnsutil metadata get example.test. ALLOW-AXFR-FROM)
 [ "$mismatched_metadata" != "$source_metadata" ] || fail 'mismatched PowerDNS fixture was not applied'
-if assert_recovery_preflight >"$work/preflight-rejection.out" 2>"$work/preflight-rejection.err"; then
-	fail 'mismatched PowerDNS fixture unexpectedly passed preflight'
-fi
-grep -Fxq "integration: restored PowerDNS preflight mismatch" "$work/preflight-rejection.err" || fail 'mismatched PowerDNS fixture did not report the fixed rejection label'
-[ ! -s "$work/preflight-rejection.out" ] || fail 'mismatched PowerDNS fixture emitted unexpected output'
+expect_preflight_rejection 'mismatched PowerDNS fixture' metadata assert_recovery_preflight
 restored_dans_stopped || fail 'restored DANS started after preflight rejection'
 compose --profile restore stop powerdns-restored >/dev/null
 seed_restored_powerdns
