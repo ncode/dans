@@ -506,6 +506,7 @@ run_scenario() {
 		DEV_TEST_BLOCK_TOKEN_CHMOD=$block_chmod \
 		DEV_TEST_BLOCK_TOKEN_MKTEMP=$block_mktemp \
 		DEV_TEST_TRACE_OPERATIONS=1 \
+		DANS_DEV_TEST_TRACE_SUPERVISOR=1 \
 		DANS_DEV_LOCK_PUBLISH_DELAY=$publish_delay \
 		PATH="$work/bin:$PATH" \
 		"$fake_root/scripts/dev-stack.sh" up 5>&2 >"$stdout" 2>"$stderr"; then
