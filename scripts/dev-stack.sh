@@ -1439,7 +1439,7 @@ launch_supervised() {
 		(umask 077 && : >"$launch_marker.ready") || exit 125
 		while [ ! -e "$launch_marker.go" ]; do
 			[ ! -e "$launch_marker.cancel" ] || exit 125
-			sleep 1
+			sleep 0.1
 		done
 		"$@" 2>"$launch_marker.stderr.pipe"
 		supervisor_status=$?
