@@ -612,6 +612,10 @@ expect_compose_query_rejection running
 	expect_preflight_rejection 'unavailable PowerDNS API' zones assert_recovery_preflight
 )
 (
+	source_zone_ids='[]'
+	expect_preflight_rejection 'wrong zone inventory' zones assert_recovery_preflight
+)
+(
 	source_forward=198.51.100.1
 	expect_preflight_rejection 'wrong forward answer' forward assert_recovery_preflight
 )
