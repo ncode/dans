@@ -10,7 +10,7 @@ The rehearsal covers the pinned one-to-three-migration transition and the dispos
 
 ## Review
 
-The first OCR review confirmed two coverage gaps: initial behavior checks had moved to the historical binary, and removed containers escaped the credential-log scan. Both were fixed and the affected real integration legs rerun successfully. Final committed-diff review is pending.
+The first OCR review confirmed two coverage gaps: initial behavior checks had moved to the historical binary, and removed containers escaped the credential-log scan. Both were fixed and the affected real integration legs rerun successfully. The final committed-diff OCR review completed with no findings across all seven selected code/configuration files; no selected files failed or were waived.
 
 OCR does not support Markdown. These changed or moved files were inspected locally for scope, privacy, contract preservation, and correspondence with the implemented checks:
 

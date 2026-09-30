@@ -13,4 +13,4 @@
 
 - [x] 3.1 Update the upgrade documentation with the exact exercised transition and its limits; keep diagnostics private.
 - [x] 3.2 Run focused contracts, shell checks, strict OpenSpec validation, Go checks, and local Docker integration for PostgreSQL 16 and 18.
-- [ ] 3.3 Privacy-screen the exact outgoing diff, run OCR, inspect excluded Markdown locally, and address confirmed findings before handoff.
+- [x] 3.3 Privacy-screen the exact outgoing diff, run OCR, inspect excluded Markdown locally, and address confirmed findings before handoff.
