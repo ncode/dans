@@ -31,6 +31,7 @@ origin=https://localhost:$DANS_DEPLOY_TLS_PORT
 log_dir=${DANS_QA_LOG_DIR:-$work/logs}
 database_network_created=0
 powerdns_network_created=0
+image_built=0
 completed=0
 
 compose() {
@@ -60,7 +61,9 @@ cleanup() {
   if [ "$powerdns_network_created" -eq 1 ]; then
     docker network rm "$DANS_POWERDNS_NETWORK" >/dev/null 2>&1 || status=1
   fi
-  docker image rm "$DANS_IMAGE" >/dev/null 2>&1 || true
+  if [ "$image_built" -eq 1 ]; then
+    docker image rm "$DANS_IMAGE" >/dev/null 2>&1 || status=1
+  fi
   rm -rf "$work"
   exit "$status"
 }
@@ -73,6 +76,7 @@ wait_for() {
   deadline=$(( $(date +%s) + 90 ))
   while [ "$(date +%s)" -le "$deadline" ]; do
     if "$@" >/dev/null 2>&1; then return 0; fi
+    sleep 1
   done
   fail 'readiness deadline exceeded'
 }
@@ -108,6 +112,7 @@ openssl req -x509 -newkey rsa:2048 -nodes -days 1 -config "$work/openssl.cnf" \
 # Only synthetic leaf files are readable; their host parent remains mode 0700.
 chmod 444 "$work/database-url" "$work/powerdns-api-key" "$work/tls.crt" "$work/tls.key"
 docker build --build-arg VERSION=deployment-test --tag "$DANS_IMAGE" "$root"
+image_built=1
 docker network create --internal --label "com.docker.compose.project=$project" "$DANS_DATABASE_NETWORK" >/dev/null
 database_network_created=1
 docker network create --internal --label "com.docker.compose.project=$project" "$DANS_POWERDNS_NETWORK" >/dev/null

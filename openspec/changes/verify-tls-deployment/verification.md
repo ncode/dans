@@ -8,10 +8,27 @@ The unchanged deployment first failed because Caddy's file capability was absent
 
 An injected post-readiness failure returned the expected fixed phase summary. The exact CI cleanup assertions passed: no run-owned containers, volumes, networks, or image tag remained, and the generated secret directory was removed. Raw evidence remained private and was not staged or uploaded.
 
+A temporary fixture change attached ingress directly to the upstream network. The gate rejected that exposure with the expected exercise-phase summary, and the original fixture bytes were restored. A Docker CLI shim then reproduced the initial cleanup defect: failed image removal still returned success. After tracking successful image creation and propagating removal errors, the same failure was rejected with a safe summary; the retained run-owned image was removed using the real CLI.
+
 Shell syntax, deployment configuration rendering, the integration/diagnostic contracts, `git diff --check`, and strict OpenSpec validation passed. Baseline Go tests passed with the native Go 1.27.1 toolchain after permitting their local HTTP test listeners; the initial sandbox listener denial was not a code failure. No Go application code changed. Image compilation used the pinned Docker builder.
 
 This evidence covers Docker Compose and API session transport. Hosted Linux execution, Podman runtime, browser rendering, and Kubernetes NetworkPolicy enforcement are not claimed as local results.
 
 ## Review
 
-OCR review is pending. Raw review output and operational evidence remain outside the repository.
+The first OCR review completed across six selected files and confirmed the image-cleanup finding above. That finding was fixed; readiness retries were also paced to avoid a busy loop. Final review is pending. Raw review output and operational evidence remain outside the repository.
+
+OCR excludes Markdown. These files were inspected locally for privacy, scope, contract preservation, and correspondence with the checks:
+
+- `deploy/README.md`
+- `openspec/specs/cli-configuration-qa/spec.md`
+- `openspec/changes/archive/2026-10-01-rehearse-coordinated-upgrades/design.md`
+- `openspec/changes/archive/2026-10-01-rehearse-coordinated-upgrades/proposal.md`
+- `openspec/changes/archive/2026-10-01-rehearse-coordinated-upgrades/specs/cli-configuration-qa/spec.md`
+- `openspec/changes/archive/2026-10-01-rehearse-coordinated-upgrades/tasks.md`
+- `openspec/changes/archive/2026-10-01-rehearse-coordinated-upgrades/verification.md`
+- `openspec/changes/verify-tls-deployment/design.md`
+- `openspec/changes/verify-tls-deployment/proposal.md`
+- `openspec/changes/verify-tls-deployment/specs/cli-configuration-qa/spec.md`
+- `openspec/changes/verify-tls-deployment/tasks.md`
+- `openspec/changes/verify-tls-deployment/verification.md`
