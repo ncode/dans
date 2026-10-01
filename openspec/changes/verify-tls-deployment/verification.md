@@ -16,7 +16,7 @@ This evidence covers Docker Compose and API session transport. Hosted Linux exec
 
 ## Review
 
-The first OCR review completed across six selected files and confirmed the image-cleanup finding above. That finding was fixed; readiness retries were also paced to avoid a busy loop. Final review is pending. Raw review output and operational evidence remain outside the repository.
+The first OCR review completed across six selected files and confirmed the image-cleanup finding above. That finding was fixed; readiness retries were also paced to avoid a busy loop. The final committed-code review completed with no findings across all six selected files; none failed or were waived. The final complete runtime rehearsal and scoped cleanup checks passed after these fixes. Raw review output and operational evidence remain outside the repository.
 
 OCR excludes Markdown. These files were inspected locally for privacy, scope, contract preservation, and correspondence with the checks:
 

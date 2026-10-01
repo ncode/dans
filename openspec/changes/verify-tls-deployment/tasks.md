@@ -8,4 +8,4 @@
 
 - [x] 2.1 Require the runtime rehearsal through the privacy-safe CI wrapper and document its scope and prerequisites.
 - [x] 2.2 Run shell/configuration checks, the real Docker rehearsal, and strict OpenSpec validation.
-- [ ] 2.3 Privacy-screen every outgoing commit, run OCR on the exact diff, address confirmed findings, and inspect excluded files locally.
+- [x] 2.3 Privacy-screen every outgoing commit, run OCR on the exact diff, address confirmed findings, and inspect excluded files locally.
