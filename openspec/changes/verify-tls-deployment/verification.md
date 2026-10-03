@@ -32,3 +32,13 @@ OCR excludes Markdown. These files were inspected locally for privacy, scope, co
 - `openspec/changes/verify-tls-deployment/specs/cli-configuration-qa/spec.md`
 - `openspec/changes/verify-tls-deployment/tasks.md`
 - `openspec/changes/verify-tls-deployment/verification.md`
+
+## macOS CI follow-up
+
+Two hosted macOS attempts stopped progressing within their first minute after a foreground command exited and its streams drained, then reached the forty-five-minute job limit. The exact hosted signal timing was not reproduced locally. A focused regression against the actual embedded supervisor did reproduce blocked cancellation when its process lookup was delayed: the original implementation failed its two-second completion bound. The simplified watchdog passed both ordinary and delayed-lookup cases.
+
+Cancellation now uses an owned stop marker and short synchronous sleeps, removing timer PID exchange, process identity lookups, and signal/EXIT-trap timer cleanup. The escaped-reader watchdog still fails closed; the complete native stack suite exercised that path, interruption, locking, state validation, and reset recovery. The native stack suite passed in 4m21s and the host-probe suite in 3m10s. The complete stack suite also passed with the native Linux shell in the existing disposable test image. Initialization checks, shell syntax, the integration diagnostic contracts, workflow YAML parsing, strict OpenSpec validation, and whitespace checks passed. These are local measurements, not hosted runtime claims.
+
+The stack and host-probe checks now run independently of each other and the unit gate. Each macOS job has a twelve-minute limit, each complete shell-suite step has a ten-minute limit, and the focused cancellation step has a one-minute limit. No checks were removed.
+
+OCR completed the follow-up with zero findings in `.github/workflows/ci.yml`, `scripts/dev-stack.sh`, and `scripts/dev-stack_test.sh`. It excludes the new `scripts/dev-supervisor_test.py` through its default test-path rule and excludes Markdown. The Python regression, this verification note, `tasks.md`, and the modified main `cli-configuration-qa` spec were reviewed locally, including bounded FIFO release, owned-process cleanup, privacy-safe failure output, preserved escaped-reader rejection, and correspondence with the CI limits. Raw diagnosis and review evidence remains private.
