@@ -8,8 +8,8 @@ These procedures use the released `dans` executable for both API and maintenance
 
    ```sh
    sha256sum --check SHA256SUMS
-   chmod 0755 ./dans_v1.0.0_linux_amd64
-   ./dans_v1.0.0_linux_amd64 version
+   chmod 0755 ./dans_v0.0.0_linux_amd64
+   ./dans_v0.0.0_linux_amd64 version
    ```
 
 2. Restrict the PowerDNS API listener to DANS, create the PostgreSQL DDL/runtime roles described in [database-roles.md](database-roles.md), and place their connection URLs in separate mounted files.
