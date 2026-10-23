@@ -1,10 +1,12 @@
 # Release artifacts
 
+The initial release targets `v0.0.0`; subsequent tags can use `v0.0.1`, `v0.0.2`, and later `v0.x.y` versions while the public API evolves. These versions do not promise API stability. The Go module path stays unchanged for both v0 and v1; a major-version suffix is required only from v2 onward. See [Go module version numbering](https://go.dev/doc/modules/version-numbers).
+
 One release version produces two static Linux executables, each containing the production console assets, and one checksum manifest. Native release builds require Node.js 24/npm in addition to the pinned Go toolchain; the build installs `web/package-lock.json` and rebuilds assets before compiling. The Docker build performs this in a separate Node build stage, so the runtime image has no Node process or frontend package manager:
 
 ```sh
-scripts/release.sh build v1.0.0 dist/v1.0.0
-scripts/release.sh verify dist/v1.0.0
+scripts/release.sh build v0.0.0 dist/v0.0.0
+scripts/release.sh verify dist/v0.0.0
 ```
 
 The filenames are `dans_VERSION_linux_amd64`, `dans_VERSION_linux_arm64`, and `SHA256SUMS`. Builds disable CGO and VCS metadata, trim source paths, clear the Go build ID, and inject the displayed version. `scripts/release_test.sh` builds twice, compares the artifacts byte-for-byte, verifies both embedded target architectures, and proves that verification rejects a modified or larger-than-24-MiB executable.
@@ -13,8 +15,8 @@ Pushing a `v*` tag runs `.github/workflows/release.yml`. The workflow repeats th
 
 ```sh
 sha256sum --check SHA256SUMS
-chmod 0755 ./dans_v1.0.0_linux_amd64
-./dans_v1.0.0_linux_amd64 version
+chmod 0755 ./dans_v0.0.0_linux_amd64
+./dans_v0.0.0_linux_amd64 version
 ```
 
 Build and publish the same command surface as a multi-platform OCI image:
@@ -22,8 +24,8 @@ Build and publish the same command surface as a multi-platform OCI image:
 ```sh
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
-  --build-arg VERSION=v1.0.0 \
-  --tag ghcr.io/ncode/dans:v1.0.0 \
+  --build-arg VERSION=v0.0.0 \
+  --tag ghcr.io/ncode/dans:v0.0.0 \
   --push .
 ```
 
@@ -32,8 +34,8 @@ The final image is `scratch`-based, contains only the static executable and CA r
 Before publishing, exercise each platform independently. The smoke check asserts the image platform, numeric non-root user, embedded version, offline help, maintenance command surface, and a 26-MiB unpacked container-root-filesystem ceiling through `SizeRootFs` (rather than backend-dependent packed image `.Size`):
 
 ```sh
-scripts/oci-smoke.sh dans-release-smoke linux/amd64 v1.0.0
-scripts/oci-smoke.sh dans-release-smoke linux/arm64 v1.0.0
+scripts/oci-smoke.sh dans-release-smoke linux/amd64 v0.0.0
+scripts/oci-smoke.sh dans-release-smoke linux/arm64 v0.0.0
 ```
 
 Release publication does not replace the complete verification baseline in OpenSpec task 12.6; generation, unit, race, static, integration, and contract gates must also pass.
@@ -42,7 +44,7 @@ The evidence-backed artifact, startup, ready-idle memory, and representative req
 
 ## First release checklist
 
-The prepared [v1.0.0 release notes](releases/v1.0.0.md) and [artifact rehearsal](releases/v1.0.0-verification.md) describe the candidate. The rehearsal does not publish a tag, GitHub release, or registry image.
+The prepared [v0.0.0 release notes](releases/v0.0.0.md) describe the current candidate. The earlier [v1.0.0 artifact rehearsal](releases/v1.0.0-verification.md) records an unpublished historical candidate; its version and hashes do not verify the current source or the v0.0.0 artifacts. Rehearse the chosen tag version against the current release commit before publication.
 
 1. Merge the readiness changes and require all CI checks on that exact main commit to pass. Confirm the chosen version has no existing tag or release and review the release notes, supported dependencies, and operations runbooks.
 2. Rehearse with Node.js 24 and the pinned Go toolchain. Keep candidate artifacts and raw logs in private storage:
@@ -51,17 +53,17 @@ The prepared [v1.0.0 release notes](releases/v1.0.0.md) and [artifact rehearsal]
    export GOTOOLCHAIN=go1.26.5
    scripts/release_workflow_test.sh
    scripts/release_test.sh
-   scripts/release.sh build v1.0.0 dist/v1.0.0
-   scripts/release.sh verify dist/v1.0.0
-   scripts/oci-smoke.sh dans-release-smoke linux/amd64 v1.0.0
-   scripts/oci-smoke.sh dans-release-smoke linux/arm64 v1.0.0
+   scripts/release.sh build v0.0.0 dist/v0.0.0
+   scripts/release.sh verify dist/v0.0.0
+   scripts/oci-smoke.sh dans-release-smoke linux/amd64 v0.0.0
+   scripts/oci-smoke.sh dans-release-smoke linux/arm64 v0.0.0
    ```
 
 3. When the candidate is approved for publication, tag the verified main commit and push that version tag. The release workflow rebuilds from the tagged source, checks both platforms, pushes the versioned and `latest` images, and creates the GitHub release with generated notes.
 4. Apply the reviewed first-release notes to the published release:
 
    ```sh
-   gh release edit v1.0.0 --notes-file docs/releases/v1.0.0.md
+   gh release edit v0.0.0 --notes-file docs/releases/v0.0.0.md
    ```
 
 5. Download the published executables and checksum manifest into a fresh directory, verify their checksums and `version` output on each target architecture, and pull the versioned image for both platforms. Recheck image platform, UID/GID, `version`, `help`, and `db migrate --help`. Record the published image digest and use that digest when pinning an installation.
